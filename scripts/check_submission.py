@@ -28,10 +28,51 @@ def read_flexible(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, sep=sep, encoding="utf-8-sig")
 
 
+def check_provenance(path: Path, problems: list[str], notes: list[str]) -> None:
+    """Verify the submission came from the run that sits beside it.
+
+    ``kaggle kernels output`` does not always overwrite a file that already
+    exists in the destination directory.  A stale submission.csv is perfectly
+    valid -- right schema, right ids, sane values -- so every other check here
+    passes it, and the only symptom is a leaderboard score identical to the
+    previous one.  That cost a submission once; hence this check.
+
+    predictions.csv is the source of truth: it carries the same run's per-frame
+    values plus diagnostics, and the submission is a clipped projection of it.
+    """
+    predictions = path.parent / "predictions.csv"
+    if not predictions.exists():
+        notes.append("predictions.csv not found; provenance unverified")
+        return
+
+    import numpy as np
+
+    submitted = read_flexible(path)
+    source = pd.read_csv(predictions)
+    merged = submitted.merge(source, on="image_id", suffixes=("_sub", "_src"))
+    if len(merged) != len(submitted):
+        problems.append("submission ids do not match predictions.csv")
+        return
+
+    for column in ("pa_deg", "fl_mm", "mt_mm"):
+        low, high = getattr(PRIORS, column)
+        expected = merged[f"{column}_src"].clip(low, high)
+        drift = (merged[f"{column}_sub"] - expected).abs()
+        if drift.max() > 0.01:
+            problems.append(
+                f"{column}: submission disagrees with predictions.csv on "
+                f"{int((drift > 0.01).sum())} rows (max {drift.max():.2f}) — "
+                "the submission file is STALE, from an earlier run"
+            )
+    if not problems:
+        notes.append("provenance: matches predictions.csv from the same run")
+
+
 def check(path: Path) -> int:
     frame = read_flexible(path)
     problems: list[str] = []
     notes: list[str] = []
+    check_provenance(path, problems, notes)
 
     if tuple(frame.columns) != SUBMISSION_COLUMNS:
         problems.append(f"columns are {tuple(frame.columns)}, expected {SUBMISSION_COLUMNS}")
