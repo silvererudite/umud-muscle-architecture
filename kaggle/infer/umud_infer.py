@@ -148,6 +148,27 @@ ablations["paired_no_orientation_head"] = {
     "pa_median_deg": stat(paired_no_head, "pa_abs_err_deg"),
     "fl_median_rel": stat(paired_no_head, "fl_rel_err"),
 }
+# Fascicle-length construction: the faithful model vs the accurate one.
+paired_rows_all = pd.DataFrame(paired["rows"])
+paired_rows_all = paired_rows_all[paired_rows_all["found"]]
+if {"fl_rel_err", "fl_parallel_rel_err"} <= set(paired_rows_all.columns) and len(paired_rows_all) > 5:
+    from scipy.stats import wilcoxon
+
+    intersection = paired_rows_all["fl_rel_err"]
+    textbook = paired_rows_all["fl_parallel_rel_err"]
+    ablations["fascicle_length_construction"] = {
+        "intersection_median_rel": float(intersection.median()),
+        "textbook_median_rel": float(textbook.median()),
+        "intersection_mean_rel": float(intersection.mean()),
+        "textbook_mean_rel": float(textbook.mean()),
+        "intersection_wins_frac": float((intersection < textbook).mean()),
+        "wilcoxon_p": float(wilcoxon(intersection, textbook).pvalue),
+        "n": int(len(paired_rows_all)),
+    }
+    print(f"  fascicle length — intersection {intersection.median():.4f} vs "
+          f"textbook {textbook.median():.4f} median relative error "
+          f"(intersection wins {100 * (intersection < textbook).mean():.0f}% of frames)", flush=True)
+
 ablations["paired_with_orientation_head"] = {
     "pa_median_deg": stat(paired, "pa_abs_err_deg"),
     "fl_median_rel": stat(paired, "fl_rel_err"),

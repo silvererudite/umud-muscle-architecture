@@ -13,11 +13,21 @@ design choices distinguish it from the usual post-processing step:
 2.  Pennation angle is referenced to the **deep aponeurosis**, not to the image
     horizontal, which is what the clinical definition actually says.
 
-3.  Fascicle length is obtained by **intersecting the fascicle direction with
-    the two fitted aponeurosis lines**, rather than by the textbook
-    ``MT / sin(PA)``.  The textbook formula silently assumes the aponeuroses are
-    parallel; in real images they diverge by a few degrees and the error that
-    introduces grows as ``1/sin`` for shallow pennation angles.
+3.  Fascicle length can be obtained either by the textbook ``MT / sin(PA)`` or
+    by **intersecting the fascicle direction with the two fitted aponeurosis
+    curves**.  The intersection is the more faithful model -- the textbook
+    formula assumes the aponeuroses are parallel and they are not -- but it is
+    **not** the better estimator, and the default is the textbook formula
+    because of it.  Measured on the 78 frames carrying both annotations, the
+    intersection is worse on 68 % of them (median relative error 0.077 against
+    0.060, Wilcoxon p = 0.0003).
+
+    The reason is worth stating, because it is the most transferable lesson in
+    this project: the intersection leans on the *difference* of two fitted
+    aponeurosis angles and on the fascicle angle, while the textbook formula
+    leans on muscle thickness -- which this pipeline recovers to 0.3 %, an order
+    of magnitude more reliably than any angle. A model that is more correct in
+    principle bought a worse answer in practice by depending on noisier inputs.
 
 Every routine returns a confidence in [0, 1] alongside its estimate so that the
 sequence module can weight frames and the report can separate "the model was
@@ -102,6 +112,7 @@ class ArchitectureEstimate:
     superficial_angle_deg: float = float("nan")
     aponeurosis_divergence_deg: float = float("nan")
     fl_parallel_mm: float = float("nan")
+    fl_intersection_mm: float = float("nan")
     orientation_dispersion: float = float("nan")
     n_apo_components: int = 0
     failure: str = ""
@@ -373,17 +384,20 @@ def fascicle_length_mm(
     fascicle_angle_deg: float,
     fallback_mt_mm: float,
 ) -> tuple[float, str]:
-    """Length of the fascicle segment bounded by the two aponeuroses.
+    """Fascicle length by intersecting the fascicle ray with the aponeuroses.
 
     Start at the middle of the deep aponeurosis, travel along the fascicle
-    direction, and solve for where that ray meets the (locally linearised)
-    superficial aponeurosis.  This is the step the proposal singles out: the
-    textbook ``MT / sin(PA)`` silently assumes the two aponeuroses are parallel,
-    and the error that assumption introduces grows like ``1/sin`` as the
-    pennation angle gets shallow.
+    direction, and solve for where that ray meets the locally linearised
+    superficial aponeurosis.  This drops the textbook formula's assumption that
+    the two aponeuroses are parallel.
 
-    Returns ``(length_mm, mode)`` where mode records which branch was taken, so
-    the report can quantify how often the two disagree.
+    Kept, but **not the default** -- see the module docstring.  It is the more
+    faithful model and the worse estimator, because it depends on the difference
+    of two fitted angles rather than on the well-recovered thickness.
+    ``estimate_architecture(fl_method=...)`` selects between them and reports
+    both, so the comparison stays reproducible.
+
+    Returns ``(length_mm, mode)``, where mode records which branch was taken.
     """
     theta = math.radians(fascicle_angle_deg)
     dx, dy = math.cos(theta), math.sin(theta)
@@ -421,12 +435,18 @@ def estimate_architecture(
     orientation: Optional[tuple[np.ndarray, np.ndarray]] = None,
     fasc_prob: Optional[np.ndarray] = None,
     priors=PRIORS,
+    fl_method: str = "parallel",
 ) -> ArchitectureEstimate:
     """Full geometric reconstruction for one frame.
 
     ``orientation`` is the network's ``(cos 2t, sin 2t)`` field.  Passing
     ``None`` switches to the structure-tensor route, which is exactly the
     "no orientation head" ablation reported in ``docs/REPORT.md``.
+
+    ``fl_method`` is ``"parallel"`` (the textbook ``MT / sin(PA)``, the default
+    because it measures better) or ``"intersection"`` (the more faithful model).
+    Both values are always computed and returned; this only chooses which one
+    lands in ``fl_mm``.
     """
     superficial, deep, apo_conf, n_components = extract_aponeuroses(
         apo_mask, mm_per_px_x, mm_per_px_y
@@ -484,9 +504,14 @@ def estimate_architecture(
     if pa > 90.0:
         pa = 180.0 - pa
 
-    fl, mode = fascicle_length_mm(superficial, deep, fasc_angle, mt)
+    fl_intersection, mode = fascicle_length_mm(superficial, deep, fasc_angle, mt)
     fl_parallel = mt / math.sin(math.radians(max(pa, 1e-3)))
-    if not math.isfinite(fl) or fl <= 0:
+    if not math.isfinite(fl_intersection) or fl_intersection <= 0:
+        fl_intersection, mode = fl_parallel, "parallel"
+
+    if fl_method == "intersection":
+        fl = fl_intersection
+    else:
         fl, mode = fl_parallel, "parallel"
 
     pa_c, fl_c, mt_c = priors.clamp(pa, fl, mt)
@@ -513,6 +538,7 @@ def estimate_architecture(
         superficial_angle_deg=superficial_angle,
         aponeurosis_divergence_deg=abs(superficial_angle - deep_angle),
         fl_parallel_mm=fl_parallel,
+        fl_intersection_mm=fl_intersection,
         orientation_dispersion=1.0 - resultant,
         n_apo_components=n_components,
         failure=("clamped_" + mode) if clamped else mode,

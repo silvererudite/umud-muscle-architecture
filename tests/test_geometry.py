@@ -69,13 +69,31 @@ def test_parallel_aponeuroses_match_the_textbook_formula():
     assert est.fl_mm == pytest.approx(textbook, rel=0.02)
 
 
-def test_diverging_aponeuroses_depart_from_the_textbook_formula():
-    """The whole point of the intersection construction: when the aponeuroses
-    are not parallel, MT / sin(PA) is the wrong answer."""
+def test_the_two_fascicle_length_constructions_genuinely_differ():
+    """When the aponeuroses are not parallel, MT / sin(PA) and the intersection
+    give materially different answers — so the choice between them is a real
+    one, not a formality. (Which one is *better* is an empirical question, and
+    the measured answer is the textbook formula; see docs/REPORT.md.)"""
     apo, fasc = phantom(thickness_px=200, angle_deg=12.0, deep_slope=0.25)
     est = estimate_architecture(apo, fasc, 0.1, 0.1)
     assert est.aponeurosis_divergence_deg > 5.0
-    assert abs(est.fl_mm - est.fl_parallel_mm) / est.fl_parallel_mm > 0.05
+    spread = abs(est.fl_intersection_mm - est.fl_parallel_mm) / est.fl_parallel_mm
+    assert spread > 0.05
+
+
+def test_fl_method_selects_between_the_two_constructions():
+    apo, fasc = phantom(thickness_px=200, angle_deg=12.0, deep_slope=0.25)
+    default = estimate_architecture(apo, fasc, 0.1, 0.1)
+    explicit = estimate_architecture(apo, fasc, 0.1, 0.1, fl_method="intersection")
+
+    # The default leans on thickness, which the pipeline recovers far more
+    # reliably than any angle.
+    assert default.fl_mm == pytest.approx(default.fl_parallel_mm)
+    assert explicit.fl_mm == pytest.approx(explicit.fl_intersection_mm)
+    assert default.fl_mm != pytest.approx(explicit.fl_mm)
+    # Both values travel with every estimate regardless of the choice.
+    for est in (default, explicit):
+        assert np.isfinite(est.fl_parallel_mm) and np.isfinite(est.fl_intersection_mm)
 
 
 def test_orientation_aggregation_is_modulo_180_degrees():
