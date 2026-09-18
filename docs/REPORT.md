@@ -499,30 +499,54 @@ ill-conditioning, which afflicts both constructions equally.
 ## 7. What changed from the proposal, and why
 
 The proposal is reproduced in `docs/comp_vis_project_idea_presentation.pdf`.
-Three commitments survived contact with the data, two were re-scoped, and one
-turned out to be unavailable.
+Of its four proposed mechanisms, two were built and refuted by measurement, one
+was re-scoped and then found to be nearly inert, and one could not be attempted
+because the data it needed is not in this competition. What did work was a
+component the proposal never mentioned.
 
-**Kept.**
+That is an uncomfortable summary, and it is the accurate one. The pipeline works
+— it scores at the level of the field'''s reference tool — but it works because of
+segmentation quality and scale recovery, not because of the ideas the proposal
+was built around.
 
-* *Geometry-aware estimation with orientation as a first-class output.* Delivered
-  as the dense doubled-angle head (§3.2), with the classical structure-tensor
-  route retained as the ablation arm.
-* *Geometric reconstruction rather than post-processing.* Delivered, and
-  strengthened: the aponeurosis-intersection construction replaces
-  `MT / sin(PA)`, which measurably matters on 42 % of frames.
+**Built, and it works.**
+
 * *Generalisation study across devices.* Delivered as a per-scanner-family
-  breakdown, using acquisition frame shape as the device proxy (the competition
-  ships no device metadata).
+  breakdown (§5.3), using acquisition frame shape as the device proxy since the
+  competition ships no device metadata. It found a real 2× spread in fascicle
+  Dice across families.
+* *Scale recovery.* Not in the proposal at all — the proposal assumed the
+  measurements were learnable targets. Reading the scanner's own depth ruler
+  turned out to be a precondition for producing millimetres at all, and it is
+  the one component that works without qualification: 100 % of test frames,
+  validated against documented presets.
+
+**Built, and refuted by measurement.**
+
+* *Orientation as a first-class output.* The dense doubled-angle head was built
+  (§3.2) and is accurate in absolute terms (0.79°), but it does **not** beat the
+  structure-tensor post-processing it was designed to replace (0.72°). The
+  argument that predicting orientation directly is better than recovering it
+  afterwards is not supported here (§6.2).
+* *Geometric reconstruction rather than the textbook formula.* The
+  aponeurosis-intersection construction was built and is the more faithful model
+  — the aponeuroses genuinely are non-parallel on 42 % of frames. It is
+  nonetheless significantly *worse* than `MT / sin(PA)` (p = 0.0003), because it
+  leans on a difference of fitted angles where the textbook formula leans on the
+  thickness the pipeline recovers to 0.3 % (§6.1). This is the project's most
+  useful result, and it contradicts its own premise.
 
 **Re-scoped.**
 
-* *Temporal coherence across video frames.* The proposal assumed video. The
+* *Temporal coherence across video frames.* The proposal assumed video; the
   competition ships still frames. Rather than drop the component, we recovered
   the latent sequence structure — 27 five-frame acquisition runs — and built the
-  consensus module on that (§3.4). It is variance reduction across a burst, not
-  optical-flow tracking; the honest description is "sequence coherence", not
-  "temporal tracking", and the RAFT-based propagation in the proposal's pipeline
-  diagram was not built.
+  consensus module on that (§3.4). The honest description is "sequence
+  coherence", not "temporal tracking"; the RAFT-based propagation in the
+  proposal's pipeline diagram was not built. And the module turned out to be
+  nearly inert: within-run spread was already 0.02 mm in thickness, so there was
+  essentially nothing to average away (§6.3). Recovering the structure was a
+  genuine finding about the data; exploiting it was not worth much.
 * *Evaluation against expert ground truth.* No frame in this competition carries
   an expert measurement, so the evaluation is the pseudo-ground-truth protocol of
   §4 plus the leaderboard.
@@ -531,10 +555,12 @@ turned out to be unavailable.
 
 * *Uncertainty calibrated against multi-expert disagreement.* This required the
   UMUD multi-expert set — 35 frames analysed independently by six operators —
-  which is indexed by UMUD but is not part of the competition data. The pipeline
-  does produce a per-frame confidence, and it is shown to correlate with error
-  (§6), but it is **not calibrated** against human disagreement and must not be
-  read as a probability. Doing that properly is the first item of follow-up work.
+  which UMUD indexes but the competition does not ship. The pipeline does emit a
+  per-frame confidence, but it is uncalibrated **and it does not predict error**
+  (Spearman −0.08 to −0.19, not significant at n = 78; §6.4). An earlier version
+  appeared to work only because it was secretly told which frames had failed.
+  It must not be read as a probability, or as anything at all in its present
+  form. Doing this properly is the first item of follow-up work.
 
 ## 8. Limitations
 
