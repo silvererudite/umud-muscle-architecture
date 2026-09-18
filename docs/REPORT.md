@@ -435,16 +435,44 @@ was the worse estimator.** The default is now the textbook formula, chosen on
 this evidence; `fl_method="intersection"` keeps the alternative available and
 both values travel with every estimate.
 
-**A pre-registered tension, recorded before the leaderboard was consulted.** The
-paired-set result above is a controlled comparison, but it rests on 78 frames
-from one scanner family. Against the published 0.451 entry across all 309 test
-frames, the two constructions rank differently: the textbook formula correlates
-better (Spearman +0.564 against +0.476) but sits about 10 mm higher in absolute
-terms and pushes more frames to the 140 mm ceiling (41 against 27). The two
-sources of evidence therefore disagree, and the leaderboard was used to
-adjudicate — with the commitment, made in advance, that a worse score would be
-read as "the 78-frame paired set did not generalise" rather than as licence to
-re-pick the winner after the fact. §5.4 records what happened.
+**A pre-registered tension, and how it resolved.** The paired-set result above
+is a controlled comparison, but it rests on 78 frames from one scanner family.
+Before consulting the leaderboard we recorded that a worse score would be read as
+"the paired set did not generalise" rather than as licence to re-pick the winner.
+The leaderboard then disagreed:
+
+| fascicle-length construction | paired set (n = 78) | public leaderboard |
+|---|---:|---:|
+| intersection | 0.077 median rel. error | **0.79372** |
+| textbook `MT / sin(PA)` | **0.060** median rel. error | 0.81269 |
+
+Both measurements are correct, and they disagree because they were taken on
+different populations:
+
+| | frames below 12° pennation | minimum PA |
+|---|---:|---:|
+| paired evaluation set | **3 %** | 11.9° |
+| test set | **15 %** | 3.0° |
+
+`MT / sin(PA)` diverges as `1/sin`: at 8° it predicts a 167 mm fascicle, and on
+the test set it pushed 41 frames to the physiological ceiling against 27 for the
+intersection. The paired set contains almost none of that regime, so the
+divergence never bit there and the textbook formula's better use of the
+well-recovered thickness won on the merits. On the test population the tail
+dominates.
+
+The operative property of the intersection is therefore **not** the one the
+proposal argued for. The proposal said it should win because the aponeuroses are
+non-parallel. It wins because it is *bounded* — the fascicle ray meets the
+superficial aponeurosis at a finite distance, so it cannot diverge however
+shallow the pennation. Those are different claims, and only measuring both
+populations separated them.
+
+The shipped default is `fl_method="auto"`: the textbook value while it lands
+inside the physiological range, the intersection when it does not. It introduces
+no tuned parameter — the bound it tests against is the clamp the estimate would
+have hit anyway — and it is a no-op when the aponeuroses are parallel, because
+the two constructions then coincide exactly.
 
 ### 6.2 Orientation head vs. the post-processing it replaced
 
@@ -510,10 +538,11 @@ ill-conditioning, which afflicts both constructions equally.
 ## 7. What changed from the proposal, and why
 
 The proposal is reproduced in `docs/comp_vis_project_idea_presentation.pdf`.
-Of its four proposed mechanisms, two were built and refuted by measurement, one
-was re-scoped and then found to be nearly inert, and one could not be attempted
-because the data it needed is not in this competition. What did work was a
-component the proposal never mentioned.
+Of its four proposed mechanisms, one was refuted outright, one turned out to
+help for a reason the proposal did not identify, one was re-scoped and then found
+nearly inert, and one could not be attempted because the data it needs is not in
+this competition. The component that works most cleanly is one the proposal never
+mentioned.
 
 That is an uncomfortable summary, and it is the accurate one. The pipeline works
 — it scores at the level of the field'''s reference tool — but it works because of
@@ -539,13 +568,16 @@ was built around.
   structure-tensor post-processing it was designed to replace (0.72°). The
   argument that predicting orientation directly is better than recovering it
   afterwards is not supported here (§6.2).
-* *Geometric reconstruction rather than the textbook formula.* The
-  aponeurosis-intersection construction was built and is the more faithful model
-  — the aponeuroses genuinely are non-parallel on 42 % of frames. It is
-  nonetheless significantly *worse* than `MT / sin(PA)` (p = 0.0003), because it
-  leans on a difference of fitted angles where the textbook formula leans on the
-  thickness the pipeline recovers to 0.3 % (§6.1). This is the project's most
-  useful result, and it contradicts its own premise.
+* *Geometric reconstruction rather than the textbook formula.* The intersection
+  construction helps — but not for the reason the proposal gave, and the
+  difference matters. The proposal argued it should win because the aponeuroses
+  are non-parallel. On a controlled comparison it in fact loses to `MT / sin(PA)`
+  on that account (p = 0.0003), because it leans on a difference of fitted angles
+  where the textbook formula leans on the thickness the pipeline recovers to
+  0.3 %. What it actually contributes is **boundedness**: it cannot diverge as
+  pennation gets shallow, where `MT / sin(PA)` runs away as `1/sin`. Right
+  mechanism, wrong reason — see §6.1 for how the two populations separated the
+  claims.
 
 **Re-scoped.**
 
