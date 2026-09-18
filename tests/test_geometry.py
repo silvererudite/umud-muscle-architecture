@@ -157,3 +157,22 @@ def test_pixel_grid_evaluation_must_not_clamp():
 
     _, free_fl, free_mt = UNCLAMPED.clamp(20.0, length_px, thickness_px)
     assert free_fl == length_px and free_mt == thickness_px
+
+
+def test_confidence_does_not_peek_at_the_clamp():
+    """Confidence must come only from evidence available before the estimate was
+    produced. Docking it when a value hits a clamp makes it look predictive of
+    failures it was simply told about, and any correlation with error is then
+    circular rather than earned."""
+    from umud.config import PhysiologicalPriors
+
+    apo, fasc = phantom(thickness_px=200, angle_deg=6.0)
+
+    generous = PhysiologicalPriors(pa_deg=(0.1, 89.9), fl_mm=(1.0, 1e6), mt_mm=(1.0, 1e6))
+    tight = PhysiologicalPriors(pa_deg=(3.0, 40.0), fl_mm=(20.0, 60.0), mt_mm=(5.0, 60.0))
+
+    free = estimate_architecture(apo, fasc, 0.1, 0.1, priors=generous)
+    pinched = estimate_architecture(apo, fasc, 0.1, 0.1, priors=tight)
+
+    assert pinched.fl_mm < free.fl_mm, "the tight prior must actually bite here"
+    assert pinched.confidence == pytest.approx(free.confidence, abs=1e-9)

@@ -491,9 +491,15 @@ def estimate_architecture(
 
     pa_c, fl_c, mt_c = priors.clamp(pa, fl, mt)
     clamped = (pa_c != pa) or (fl_c != fl) or (mt_c != mt)
+
+    # Confidence is built only from evidence the model had *before* the estimate
+    # was produced -- aponeurosis coverage and fit, and orientation agreement.
+    # An earlier version also multiplied it down whenever a value hit a clamp,
+    # which made the confidence look like it was detecting failures when it was
+    # only being told about them; any correlation with error was then circular.
+    # The clamp is recorded in `failure` instead, where it cannot masquerade as
+    # a prediction.
     confidence = float(np.clip(0.5 * apo_conf + 0.5 * fasc_conf, 0.0, 1.0))
-    if clamped:
-        confidence *= 0.6
 
     return ArchitectureEstimate(
         pa_deg=pa_c,
