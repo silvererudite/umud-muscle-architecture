@@ -86,10 +86,21 @@ locally. You need a Kaggle API token with access to the competition.
 ```bash
 export KAGGLE_API_TOKEN=...              # or ~/.kaggle/kaggle.json
 
-# 1. ship the source package to Kaggle as a dataset
+# everything below, end to end:
+./scripts/run_pipeline.sh "run description"
+```
+
+Or step by step:
+
+```bash
+# 1. ship the source package to Kaggle as a dataset.  kaggle/src/umud is a
+#    staging copy of src/umud and is not tracked in git, so populate it first.
+mkdir -p kaggle/src/umud/assets
+cp src/umud/*.py          kaggle/src/umud/
+cp src/umud/assets/*.json kaggle/src/umud/assets/
 kaggle datasets version -p kaggle/src -m "update" -r zip
 
-# 2. train (two U-Nets, ~1 h on a T4)
+# 2. train (two U-Nets on a T4; budget ~2 h)
 kaggle kernels push -p kaggle/train
 kaggle kernels status shamimahossain/umud-train-seg
 
@@ -97,7 +108,10 @@ kaggle kernels status shamimahossain/umud-train-seg
 kaggle kernels push -p kaggle/infer
 kaggle kernels output shamimahossain/umud-infer -p outputs/
 
-# 4. submit
+# 4. check before spending one of the five daily submissions
+python scripts/check_submission.py outputs/submission.csv
+
+# 5. submit
 kaggle competitions submit \
   -c umud-challenge-muscle-architecture-in-ultrasound-data \
   -f outputs/submission.csv -m "geometry-aware pipeline"
@@ -107,8 +121,20 @@ To work on the code locally (no training):
 
 ```bash
 uv venv --python 3.11 .venv && uv pip install -r requirements.txt
-python scripts/build_index.py     # rebuild the duplicate/paired index
-pytest tests/
+source .venv/bin/activate
+
+pytest tests/                      # 20 tests, no data needed
+python scripts/build_index.py      # rebuild the duplicate/paired index
+python scripts/make_figures.py     # EDA figures for the report
+python scripts/build_notebook.py   # regenerate notebooks/01_data_and_method.ipynb
+```
+
+The local checkout needs the competition data under `data/umud/` (or set
+`UMUD_DATA_DIR`) for anything beyond the test suite:
+
+```bash
+kaggle competitions download -c umud-challenge-muscle-architecture-in-ultrasound-data -p data/raw
+unzip -q data/raw/*.zip -d data/umud
 ```
 
 ## Results
