@@ -67,6 +67,25 @@ def check(path: Path) -> int:
         if values.nunique() == 1:
             problems.append(f"{column}: every row has the same value ({values.iloc[0]}) — the pipeline failed")
 
+    # Distribution sanity.  These bands come from two independent sources that
+    # agree with each other: the published physiological ranges for lower-limb
+    # muscle, and the summary statistics of a public leaderboard entry scoring
+    # 0.45134 (Dread Development, "Vera - Seg-Centerline MT Correction").  We use
+    # only the summary statistics as a plausibility band -- landing far outside
+    # means something upstream is wrong, most likely the scale.
+    reference_median = {"pa_deg": (13.0, 21.0), "fl_mm": (65.0, 105.0), "mt_mm": (16.0, 26.0)}
+    for column, (low, high) in reference_median.items():
+        if column not in frame:
+            continue
+        median = float(pd.to_numeric(frame[column], errors="coerce").median())
+        if not (low <= median <= high):
+            problems.append(
+                f"{column}: median {median:.1f} is outside the plausible band "
+                f"{low}-{high} — suspect the mm/px scale"
+            )
+        else:
+            notes.append(f"{column}: median {median:.1f} (plausible band {low}-{high})")
+
     # A geometry cross-check: FL*sin(PA) should be close to MT if the three
     # numbers describe one muscle.  Large disagreement means the three outputs
     # were produced independently and are not mutually consistent.

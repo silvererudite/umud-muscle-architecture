@@ -242,6 +242,27 @@ Two evaluation sets are used: per-task held-out splits (large, partial
 coverage), and the 78 paired frames carrying both annotations, which is the only
 set where PA, FL and MT can be reconstructed from ground truth together.
 
+### 4.1 An external check on the geometry
+
+Pennation angle is scale-invariant, so running the reconstruction on the
+annotator's masks gives a number that can be compared against the outside world
+without trusting any of our calibration. It lands at a **median of 17.0°**,
+against a published range of 10-25° for vastus lateralis — and against **16.4°**
+for a public leaderboard entry scoring 0.45134, computed by a completely
+different pipeline.
+
+| | PA median | FL median | MT median |
+|---|---:|---:|---:|
+| this geometry on ground-truth masks | 17.0° | — (scale-free) | — (scale-free) |
+| public LB 0.45134 entry [9] | 16.4° | 84.5 mm | 20.9 mm |
+| published range, vastus lateralis | 10-25° | 60-110 mm | 15-30 mm |
+
+Two independent routes agreeing to 0.6° is the strongest evidence available here
+that the reconstruction is not systematically wrong. `scripts/check_submission.py`
+turns these bands into a pre-flight gate: a submission whose medians fall outside
+them is refused, because the most likely cause is a mis-read scale rather than a
+genuinely unusual cohort.
+
 ## 5. Results
 
 > *Filled from the Kaggle kernel outputs (`outputs/evaluation.json`,
@@ -360,3 +381,4 @@ turned out to be unavailable.
 6. Z. Teed, J. Deng. RAFT. *ECCV*, 402–419, 2020.
 7. P. Ritsche et al. UMUD: a web application for easy access to musculoskeletal ultrasonography datasets. *BMC Medical Imaging* 26:139, 2026.
 8. AmbrosM. *UMUD Quick and Dirty* (Kaggle notebook, CC BY-SA) — per-scanner ruler geometry.
+9. Dread Development. *Vera — Seg-Centerline MT Correction* (Kaggle notebook, public LB 0.45134) — used only as an external distributional cross-check, never as a source of predictions.
