@@ -3,9 +3,12 @@
 This is the "geometric reconstruction" box of the proposal's pipeline.  Three
 design choices distinguish it from the usual post-processing step:
 
-1.  Everything is solved in **millimetre space**, not pixel space.  Ultrasound
-    pixels are frequently non-square, so an angle measured on the pixel grid is
-    not the anatomical angle.  We rescale first, then measure.
+1.  Everything is solved in **millimetre space**, not pixel space.  An angle
+    measured on the pixel grid is only the anatomical angle when the pixels are
+    square; we rescale first, then measure.  On the *test* set this correction
+    turns out to be nearly a no-op (depth and lateral scales agree to 0.35 %),
+    but 70 % of the training frames were resized off their native aspect ratio
+    by up to 12.5 %, so the geometry cannot assume square pixels.
 
 2.  Pennation angle is referenced to the **deep aponeurosis**, not to the image
     horizontal, which is what the clinical definition actually says.
@@ -83,9 +86,6 @@ class Aponeurosis:
             residual=self.residual,
         )
 
-
-# Backwards-compatible alias used in tests and notebooks.
-Line = Aponeurosis
 
 
 @dataclass
