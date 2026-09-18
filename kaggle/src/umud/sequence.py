@@ -130,6 +130,10 @@ def smooth_predictions(
     """
     smoothed = [dict(record) for record in records]
     for group in groups:
+        # Record the run size on every frame, smoothed or not, so the ablation
+        # can separate "was in a run" from "was changed by smoothing".
+        for i in group.indices:
+            smoothed[i]["group_size"] = group.size
         if group.size < min_group_size:
             continue
         members = [records[i] for i in group.indices]
@@ -142,5 +146,4 @@ def smooth_predictions(
             for field, value in consensus.items():
                 if np.isfinite(value):
                     smoothed[i][field] = value
-            smoothed[i]["group_size"] = group.size
     return smoothed

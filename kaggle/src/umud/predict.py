@@ -40,18 +40,25 @@ Image.MAX_IMAGE_PIXELS = None
 def load_model(weights_path: str | Path, device: torch.device) -> tuple[GeometryAwareUNet, dict]:
     checkpoint = torch.load(weights_path, map_location=device, weights_only=False)
     config = checkpoint["config"]
+    state_dict = checkpoint["state_dict"]
     model = GeometryAwareUNet(
         encoder=config["encoder"],
         pretrained=False,                      # weights come from the checkpoint
-        orientation_head="orientation" in _head_names(checkpoint["state_dict"]),
+        orientation_head=has_orientation_head(state_dict),
     )
-    model.load_state_dict(checkpoint["state_dict"])
+    model.load_state_dict(state_dict)
     model.to(device).eval()
     return model, config
 
 
-def _head_names(state_dict: dict) -> set[str]:
-    return {key.split(".")[0] for key in state_dict}
+def has_orientation_head(state_dict: dict) -> bool:
+    """Whether a checkpoint carries the orientation branch.
+
+    Read off the weights rather than the saved config: the aponeurosis model is
+    built without the branch, and rebuilding it from a stale config would leave
+    the loader with keys it cannot place.
+    """
+    return any(key.startswith("orientation_head.") for key in state_dict)
 
 
 @dataclass

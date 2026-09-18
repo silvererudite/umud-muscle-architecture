@@ -98,20 +98,44 @@ def _tick_positions(profile: np.ndarray, threshold: float = 50.0) -> np.ndarray:
     return np.array([0.5 * (s + e - 1) for s, e in zip(starts, ends) if e - s <= 12])
 
 
-def _spacing_from_ticks(ticks: np.ndarray) -> Optional[float]:
-    """Robust tick pitch: the median of consecutive gaps, after dropping gaps
-    that are obvious multiples (a missing tick) or splinters."""
-    if ticks.size < 4:
+def _spacing_from_ticks(ticks: np.ndarray, max_irregularity: float = 0.12) -> Optional[float]:
+    """Robust tick pitch: the median gap, provided the gaps are actually regular.
+
+    The regularity test is what separates a ruler from speckle.  A drawn ruler
+    has gaps whose spread is a few percent of their mean; bright specks in an
+    ultrasound border produce "ticks" whose gaps are all over the place.  Without
+    this check the detector happily invents a scale for an image that has no
+    ruler at all, which is worse than admitting defeat: a wrong scale silently
+    rescales every millimetre the pipeline reports.
+    """
+    if ticks.size < 5:
         return None
     gaps = np.diff(ticks)
     gaps = gaps[gaps > 2]
-    if gaps.size < 3:
+    if gaps.size < 4:
         return None
     pitch = float(np.median(gaps))
     inliers = gaps[np.abs(gaps - pitch) < 0.25 * pitch]
-    if inliers.size < 3:
+    if inliers.size < 4 or inliers.size < 0.7 * gaps.size:
+        return None
+    if float(np.std(inliers) / max(np.mean(inliers), 1e-6)) > max_irregularity:
         return None
     return float(np.median(inliers))
+
+
+def _looks_like_chrome(profile: np.ndarray, threshold: float = 50.0) -> bool:
+    """Whether a border profile looks like scanner chrome rather than tissue.
+
+    Rulers are drawn as bright marks on a black margin, so the profile should be
+    mostly dark with a small bright minority.  A strip that runs through actual
+    tissue has a high, noisy baseline and fails both halves of this test.
+    """
+    dark_fraction = float((profile < threshold).mean())
+    if dark_fraction < 0.6:
+        return False
+    background = float(np.median(profile))
+    peak = float(profile.max())
+    return background < threshold and peak > background + 80.0
 
 
 def _generic_calibration(g: np.ndarray) -> Optional[tuple[float, str]]:
@@ -133,6 +157,8 @@ def _generic_calibration(g: np.ndarray) -> Optional[tuple[float, str]]:
     ]
     for side, profiles in strips:
         for profile in profiles:
+            if not _looks_like_chrome(profile):
+                continue
             ticks = _tick_positions(profile)
             pitch = _spacing_from_ticks(ticks)
             if pitch is None or pitch < 4:

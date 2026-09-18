@@ -52,3 +52,38 @@ def test_weighted_median_ignores_a_low_confidence_outlier():
 
 def test_weighted_median_handles_nans():
     assert np.isfinite(weighted_median([1.0, np.nan, 3.0], [1.0, 1.0, 1.0]))
+
+
+def test_generic_detector_refuses_irregular_speckle():
+    """A wrong scale is worse than no scale: it silently rescales every
+    millimetre the pipeline reports.  Random bright specks must not pass."""
+    rng = np.random.default_rng(0)
+    noisy = rng.integers(0, 255, size=400).astype(float)
+    assert _spacing_from_ticks(_tick_positions(noisy)) is None
+
+
+def test_generic_detector_refuses_a_strip_running_through_tissue():
+    from umud.calibration import _looks_like_chrome
+
+    rng = np.random.default_rng(1)
+    tissue = np.clip(rng.normal(90, 35, size=400), 0, 255)
+    assert not _looks_like_chrome(tissue)
+
+    chrome = np.zeros(400)
+    for centre in range(20, 380, 37):
+        chrome[centre:centre + 3] = 200
+    assert _looks_like_chrome(chrome)
+
+
+def test_generic_detector_accepts_a_real_ruler_on_dark_chrome():
+    from umud.calibration import _generic_calibration
+
+    frame = np.zeros((400, 300))
+    frame[:, 30:270] = 90                       # tissue in the middle
+    for centre in range(20, 380, 30):           # ruler in the left margin
+        frame[centre:centre + 3, 4:10] = 220
+    result = _generic_calibration(frame)
+    assert result is not None
+    px_per_cm, note = result
+    assert px_per_cm == pytest.approx(60.0, abs=1.0)   # 30 px per 5 mm tick
+    assert "left" in note
