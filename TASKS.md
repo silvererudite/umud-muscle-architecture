@@ -56,20 +56,20 @@
 
 ## Phase 4 — Evaluation
 
-- [~] 4.1 Segmentation metrics: Dice / IoU on held-out split
+- [x] 4.1 Segmentation metrics: Dice / IoU on held-out split
 - [x] 4.2 **Pseudo-ground-truth protocol**: run the geometry module on *ground-truth* masks vs *predicted* masks on held-out data → MAE in mm/degrees without needing expert labels
-- [~] 4.3 Error breakdown by device family (the proposal's generalisation study)
-- [~] 4.4 Ablations: − orientation head, − sequence smoothing, − calibration refinement
+- [x] 4.3 Error breakdown by device family (the proposal's generalisation study)
+- [x] 4.4 Ablations: − orientation head, − sequence smoothing, − calibration refinement
 - [ ] 4.5 Compare error against published inter-expert variability
 
 ## Phase 5 — Submission & delivery
 
-- [~] 5.1 Inference kernel → `submission.csv` → submit via API, record LB score  ← **running**
-- [ ] 5.2 Iterate within the 5/day budget
-- [ ] 5.3 `README.md` — full reproduction instructions
-- [ ] 5.4 `docs/REPORT.md` — course report: method, results, ablations, honest limitations
-- [ ] 5.5 Figures for the report
-- [ ] 5.6 Push to GitHub
+- [x] 5.1 Inference kernel → `submission.csv` → submit via API — **public LB 0.75306**
+- [x] 5.2 Iterate within the 5/day budget — 4 scored submissions; 0.794 → 0.813 → 0.753
+- [x] 5.3 `README.md` — full reproduction instructions
+- [x] 5.4 `docs/REPORT.md` — course report: method, results, ablations, honest limitations
+- [x] 5.5 Figures for the report
+- [~] 5.6 Push to GitHub — staged, awaiting `gh auth login`
 
 ---
 

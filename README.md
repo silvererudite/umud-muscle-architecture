@@ -142,8 +142,9 @@ unzip -q data/raw/*.zip -d data/umud
 
 ## Results
 
-Public leaderboard **0.79372** (`UMUD_score`, lower is better) — level with
-DL_Track_US, the field's reference tool, and behind the best public entries.
+Public leaderboard **0.75306** (`UMUD_score`, lower is better) — just ahead of
+DL_Track_US, the tool this field currently uses (0.779), and behind the best
+public entries (0.283).
 
 Held-out, against the annotators' own masks put through the same geometry:
 
@@ -155,11 +156,13 @@ Held-out, against the annotators' own masks put through the same geometry:
 | aponeurosis segmentation, Dice | 0.839 |
 | fascicle orientation field | 2.74° |
 
-**Three of the four proposed mechanisms did not earn their place**, and the
-report says so: the orientation head does not beat the post-processing it
-replaced, sequence smoothing is nearly inert, the per-frame confidence does not
-predict error, and the intersection construction for fascicle length is
-significantly *worse* than the textbook formula it was meant to improve on.
+**Most of the proposed mechanisms did not earn their place**, and the report says
+so: the orientation head does not beat the post-processing it replaced, sequence
+smoothing is nearly inert, and the per-frame confidence does not predict error.
+The intersection construction for fascicle length *does* help — but through
+boundedness against `1/sin` ill-conditioning, not through the aponeurosis
+non-parallelism the proposal argued from. On that account it loses outright
+(p = 0.0003). Right mechanism, wrong reason.
 
 Full numbers, ablations and limitations: [`docs/REPORT.md`](docs/REPORT.md).
 
