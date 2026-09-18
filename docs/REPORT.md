@@ -265,13 +265,36 @@ genuinely unusual cohort.
 
 ## 5. Results
 
-> *Filled from the Kaggle kernel outputs (`outputs/evaluation.json`,
-> `outputs/training_summary.json`). Training was still running when this section
-> was drafted; the numbers below are inserted verbatim from the kernel log.*
-
 ### 5.1 Segmentation
 
-<!-- TABLE:segmentation -->
+Both models train from an ImageNet-initialised ResNet-34 encoder on a Kaggle T4,
+93.6 minutes for the pair.
+
+| | aponeurosis | fascicle |
+|---|---:|---:|
+| training frames | 893 | 2344 |
+| held-out frames | 155 | 417 |
+| epochs (best / total) | 29 / 45 | 16 / 35 |
+| **validation Dice** | **0.836** | **0.273** |
+| validation IoU | 0.727 | 0.161 |
+| orientation-field error | — | **2.74°** |
+
+![training curves](figures/training_curves.png)
+
+**The fascicle Dice of 0.27 is low, and that number needs reading carefully
+rather than apologising for.** The annotators did not trace every fascicle in a
+frame; they traced a *representative sample* of them — typically a dozen short
+segments scattered through a field containing hundreds. A model that segments a
+different but equally valid set of fascicles is marked wrong by Dice while being
+exactly right for the purpose the masks are used for. The metric that reflects
+that purpose is the orientation error, and it reaches **2.74°**.
+
+The aponeurosis task has no such ambiguity — there are exactly two bands and the
+annotator traced both — and there Dice reaches 0.836.
+
+The fascicle model overfits after epoch 16: training loss keeps falling while
+validation loss turns up. Checkpointing on validation Dice rather than on the
+final epoch is what keeps that from reaching the submission.
 
 ### 5.2 Geometry (pseudo-ground-truth)
 
