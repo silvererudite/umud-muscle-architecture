@@ -240,9 +240,83 @@ set where PA, FL and MT can be reconstructed from ground truth together.
 
 ---
 
-## 7. Limitations
+## 7. What changed from the proposal, and why
 
-*(to be completed)*
+The proposal is reproduced in `docs/comp_vis_project_idea_presentation.pdf`.
+Three commitments survived contact with the data, two were re-scoped, and one
+turned out to be unavailable.
+
+**Kept.**
+
+* *Geometry-aware estimation with orientation as a first-class output.* Delivered
+  as the dense doubled-angle head (§3.2), with the classical structure-tensor
+  route retained as the ablation arm.
+* *Geometric reconstruction rather than post-processing.* Delivered, and
+  strengthened: the aponeurosis-intersection construction replaces
+  `MT / sin(PA)`, which measurably matters on 42 % of frames.
+* *Generalisation study across devices.* Delivered as a per-scanner-family
+  breakdown, using acquisition frame shape as the device proxy (the competition
+  ships no device metadata).
+
+**Re-scoped.**
+
+* *Temporal coherence across video frames.* The proposal assumed video. The
+  competition ships still frames. Rather than drop the component, we recovered
+  the latent sequence structure — 27 five-frame acquisition runs — and built the
+  consensus module on that (§3.4). It is variance reduction across a burst, not
+  optical-flow tracking; the honest description is "sequence coherence", not
+  "temporal tracking", and the RAFT-based propagation in the proposal's pipeline
+  diagram was not built.
+* *Evaluation against expert ground truth.* No frame in this competition carries
+  an expert measurement, so the evaluation is the pseudo-ground-truth protocol of
+  §4 plus the leaderboard.
+
+**Not delivered.**
+
+* *Uncertainty calibrated against multi-expert disagreement.* This required the
+  UMUD multi-expert set — 35 frames analysed independently by six operators —
+  which is indexed by UMUD but is not part of the competition data. The pipeline
+  does produce a per-frame confidence, and it is shown to correlate with error
+  (§6), but it is **not calibrated** against human disagreement and must not be
+  read as a probability. Doing that properly is the first item of follow-up work.
+
+## 8. Limitations
+
+1. **No expert-measurement validation.** Every offline number here compares the
+   pipeline against *annotator masks* put through the same geometry module, not
+   against a human's thickness or angle. Systematic error in the geometry module
+   itself is invisible to this protocol — if the reconstruction were biased, the
+   pseudo-ground-truth comparison would be equally biased on both sides and
+   report a small error. The leaderboard is the only external check, and it is a
+   single scalar over 309 frames.
+
+2. **The scale is trusted, not verified.** Calibration covers 100 % of test
+   frames and the implied fields of view are plausible, but nothing independently
+   confirms that a given frame's ruler was read correctly. A systematic
+   misreading on one scanner family would shift MT and FL for that family
+   coherently and would not show up as a failure.
+
+3. **The paired evaluation set is small and homogeneous.** All 78 frames carrying
+   both annotations are 512×512 crops from one scanner family, so the end-to-end
+   numbers say nothing about how the *combination* of the two models behaves on
+   the other five families.
+
+4. **Fascicle length is extrapolated, not observed.** The annotations cover
+   roughly 10-20 % of a fascicle's length. Every FL number in this report and in
+   the submission is a geometric extrapolation from a short segment's direction,
+   and it inherits the assumption that fascicles are locally straight. Curved
+   fascicles — common in deeply pennate muscle — will be systematically
+   mis-measured, and this protocol cannot detect it.
+
+5. **Physiological clamping hides failures.** Estimates are clipped to plausible
+   ranges. This improves the score and is standard practice, but it converts a
+   detectable failure into a plausible-looking wrong answer. The failure label and
+   confidence are reported alongside precisely so that clamped frames stay
+   identifiable.
+
+6. **Single split, single seed.** Compute budget allowed one training run per
+   task. No seed variance, no cross-validation, so small differences between
+   ablation arms should not be over-read.
 
 ## 8. References
 
