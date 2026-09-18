@@ -46,11 +46,14 @@ Three things distinguish it from the standard segment-then-post-process recipe:
    downstream aggregation weight by segmentation confidence and report its own
    dispersion as a per-frame uncertainty.
 
-2. **Fascicle length comes from an intersection, not from `MT / sin θ`.** The
-   textbook formula assumes the two aponeuroses are parallel. They are not, and
-   the error that assumption introduces grows like `1/sin` as pennation gets
-   shallow. We fit each aponeurosis as a curve and intersect the fascicle
-   direction with them directly.
+2. **Fascicle length is computed two ways and the better one is measured, not
+   assumed.** The textbook `MT / sin θ` assumes the two aponeuroses are parallel;
+   they are not. This project was built expecting that the intersection of the
+   fascicle with the fitted aponeurosis curves would therefore be more accurate.
+   **Held-out measurement says it is not** — the textbook formula wins
+   (p = 0.0003), because it leans on muscle thickness, which the pipeline recovers
+   to 0.3 %, while the intersection leans on a difference of fitted angles. The
+   textbook formula is the default as a result. See `docs/REPORT.md` §6.1.
 
 3. **Everything is solved in millimetre space.** Pixel aspect ratio is corrected
    before any angle is measured, and pennation is referenced to the deep
@@ -139,7 +142,26 @@ unzip -q data/raw/*.zip -d data/umud
 
 ## Results
 
-See [`docs/REPORT.md`](docs/REPORT.md).
+Public leaderboard **0.79372** (`UMUD_score`, lower is better) — level with
+DL_Track_US, the field's reference tool, and behind the best public entries.
+
+Held-out, against the annotators' own masks put through the same geometry:
+
+| | |
+|---|---:|
+| muscle thickness, relative error | **0.003** |
+| pennation angle | **1.16°** |
+| fascicle length, relative error | 0.060 |
+| aponeurosis segmentation, Dice | 0.839 |
+| fascicle orientation field | 2.74° |
+
+**Three of the four proposed mechanisms did not earn their place**, and the
+report says so: the orientation head does not beat the post-processing it
+replaced, sequence smoothing is nearly inert, the per-frame confidence does not
+predict error, and the intersection construction for fascicle length is
+significantly *worse* than the textbook formula it was meant to improve on.
+
+Full numbers, ablations and limitations: [`docs/REPORT.md`](docs/REPORT.md).
 
 ## Acknowledgements
 

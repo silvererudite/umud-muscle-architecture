@@ -175,11 +175,12 @@ background texture.
   are defined, so one bad edge cannot move the answer.
 * **PA** is referenced to the **deep aponeurosis**, which is what the clinical
   definition says, not to the image horizontal.
-* **FL** comes from intersecting the fascicle direction with the fitted
-  superficial aponeurosis. The textbook `MT / sin(PA)` assumes the aponeuroses
-  are parallel; they are not, and the error that assumption introduces grows
-  like `1/sin` as pennation gets shallow. Both values are computed and the
-  difference is reported.
+* **FL** is computed two ways — the textbook `MT / sin(PA)`, and by intersecting
+  the fascicle direction with the fitted superficial aponeurosis, which drops the
+  textbook formula's assumption that the aponeuroses are parallel (they are not).
+  The project was built expecting the intersection to win. **It does not**, and
+  the textbook formula is the default as a result; §6.1 gives the measurement and
+  the reason. Both values are computed on every frame and both are reported.
 
 Every estimate carries a confidence built from aponeurosis coverage, fit
 residual and orientation dispersion, plus an explicit failure label.
