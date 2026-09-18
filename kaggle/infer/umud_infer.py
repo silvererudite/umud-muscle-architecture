@@ -185,4 +185,27 @@ ablations["tta"] = {
 }
 
 (OUT / "ablations.json").write_text(json.dumps(ablations, indent=2, default=float))
+
+# ---------------------------------------------------------------- qualitative
+print("\n=== qualitative panels ===", flush=True)
+from umud.visualise import qualitative_panel
+
+by_device = frame.groupby("device")["image_id"].first().to_dict()
+one_per_family = [p for p in test_paths if p.name in set(by_device.values())]
+qualitative_panel(
+    one_per_family, apo_model, fasc_model, device,
+    OUT / "qualitative_by_device.png",
+    title="One frame per scanner family",
+)
+
+ranked = frame.sort_values("confidence")
+worst = [p for p in test_paths if p.name in set(ranked.image_id.head(3))]
+best = [p for p in test_paths if p.name in set(ranked.image_id.tail(3))]
+qualitative_panel(
+    best + worst, apo_model, fasc_model, device,
+    OUT / "qualitative_best_worst.png",
+    title="Highest-confidence frames (top row) and lowest (bottom row)",
+)
+print("wrote qualitative panels", flush=True)
+
 print("\nwrote submission.csv, predictions.csv, evaluation.json, ablations.json", flush=True)
