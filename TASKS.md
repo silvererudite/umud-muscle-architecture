@@ -44,7 +44,7 @@
 - [x] 2.1 U-Net (pretrained encoder) for **aponeurosis** segmentation
 - [x] 2.2 U-Net for **fascicle** segmentation
 - [x] 2.3 **Orientation head** — the proposal's core contribution: regress a dense fascicle-direction field (cos 2θ, sin 2θ) jointly with the mask, instead of recovering angle by post-hoc Hough
-- [~] 2.4 Train on Kaggle GPU kernel; pull weights + curves back  ← **running**
+- [x] 2.4 Train on Kaggle GPU kernel; pull weights + curves back — apo Dice **0.836**, fascicle orientation error **2.74°**, 93.6 min on a T4
 
 ## Phase 3 — Geometry
 
@@ -64,7 +64,7 @@
 
 ## Phase 5 — Submission & delivery
 
-- [ ] 5.1 Inference kernel → `submission.csv` → submit via API, record LB score
+- [~] 5.1 Inference kernel → `submission.csv` → submit via API, record LB score  ← **running**
 - [ ] 5.2 Iterate within the 5/day budget
 - [ ] 5.3 `README.md` — full reproduction instructions
 - [ ] 5.4 `docs/REPORT.md` — course report: method, results, ablations, honest limitations
