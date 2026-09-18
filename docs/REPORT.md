@@ -298,11 +298,87 @@ final epoch is what keeps that from reaching the submission.
 
 ### 5.2 Geometry (pseudo-ground-truth)
 
-<!-- TABLE:geometry -->
+The protocol of §4: the same geometry module run on the annotator's masks and on
+the network's, compared frame by frame. Scale-free, so segmentation error is
+isolated from calibration error.
+
+**Per-task splits**
+
+| | value | n |
+|---|---:|---:|
+| aponeurosis pair recovered | 99 % of frames | 155 |
+| thickness, median relative error | **0.004** | |
+| deep-aponeurosis angle, median error | **0.23°** | |
+| fascicle angle, median error | **0.79°** | 416 |
+
+**End-to-end, on the 78 frames carrying both annotations** (aponeuroses
+recovered on 100 % of them)
+
+| parameter | median | mean | p90 |
+|---|---:|---:|---:|
+| muscle thickness, relative | **0.003** | 0.059 | 0.059 |
+| pennation angle | **1.16°** | 1.66° | 3.30° |
+| fascicle length, relative | **0.060** | 0.128 | 0.260 |
+
+Thickness is the standout: the geometry recovers it from *predicted* masks to
+within 0.3 % of what it recovers from the annotator's own masks. That
+single fact drives the most important design decision in the project (§6.1).
+
+The aponeurosis divergence — the quantity the intersection construction rests on
+— is also recovered well: 1.68° predicted against 1.72° from ground truth,
+median error 0.15°. This matters because it rules out the obvious
+explanation for the §6.1 result.
+
+**A caveat that limits all three numbers.** All 78 paired frames are
+512×512 crops from a single scanner family. They are the only frames in the
+competition carrying both annotations, so this is the only end-to-end evidence
+available — but it says nothing about how the two models behave *together* on
+the other five families.
 
 ### 5.3 Generalisation across scanner families
 
-<!-- TABLE:by_device -->
+Segmentation quality, held-out, broken down by acquisition frame shape — the
+only device proxy available, since the competition ships no scanner metadata:
+
+| acquisition shape | task | n | Dice | IoU |
+|---|---|---:|---:|---:|
+| 556x660 | aponeurosis | 39 | 0.905 | 0.829 |
+| 512x512 | aponeurosis | 29 | 0.845 | 0.737 |
+| 864x1152 | aponeurosis | 71 | 0.821 | 0.701 |
+| 652x800 | aponeurosis | 12 | 0.732 | 0.591 |
+| 500x760 | fascicle | 32 | 0.408 | 0.257 |
+| 556x660 | fascicle | 25 | 0.386 | 0.245 |
+| 600x800 | fascicle | 12 | 0.357 | 0.218 |
+| 768x1196 | fascicle | 15 | 0.318 | 0.190 |
+| 644x1088 | fascicle | 18 | 0.278 | 0.162 |
+| 810x1340 | fascicle | 18 | 0.266 | 0.154 |
+| 556x996 | fascicle | 111 | 0.254 | 0.147 |
+| 512x512 | fascicle | 12 | 0.251 | 0.146 |
+| 1080x1640 | fascicle | 101 | 0.249 | 0.143 |
+| 652x800 | fascicle | 6 | 0.238 | 0.136 |
+| 864x1152 | fascicle | 64 | 0.218 | 0.123 |
+
+Aponeurosis Dice ranges from 0.732 to 0.905 across families. The spread is
+real but modest, and the weakest family is not the rarest one, so this does not
+look like a data-quantity effect.
+
+Predictions on the test set by family:
+
+| scanner family (test) | n | px/cm | MT mm | PA ° | FL mm |
+|---|---:|---:|---:|---:|---:|
+| 512_bottom | 8 | 77.8 | 18.6 | 18.2 | 80.5 |
+| 644x1088 | 50 | 126.1 | 29.1 | 16.4 | 85.6 |
+| 800x1200_left | 90 | 148.2 | 25.5 | 14.2 | 86.9 |
+| 800x1200_right | 91 | 152.2 | 22.1 | 19.6 | 66.7 |
+| 853_bottom | 12 | 166.8 | 16.9 | 21.3 | 68.3 |
+| png_left_ruler | 58 | 150.0 | 20.3 | 14.8 | 79.7 |
+
+The by-family medians differ substantially — thickness spans 16.9 to 29.1 mm.
+Some of that is genuine: different scanners were used for different muscles, and
+a gastrocnemius is not a vastus lateralis. But it cannot all be anatomy, and
+with no per-family ground truth there is no way to separate the two from inside
+this competition. **This is the weakest link in the generalisation story**, and
+it is where the residual leaderboard gap most plausibly lives (§5.4).
 
 ### 5.4 Leaderboard
 
@@ -323,7 +399,97 @@ visible at the time of writing:
 
 ## 6. Ablations
 
-<!-- TABLE:ablations -->
+Four mechanisms were proposed. Each was measured against the thing it replaced.
+**Three of the four did not earn their place, and the fourth is nearly inert.**
+The measurements are reported as they came out.
+
+### 6.1 Fascicle length: the faithful model loses to the textbook formula
+
+| construction | median rel. error | mean | frames won |
+|---|---:|---:|---:|
+| intersection with the fitted aponeuroses | 0.077 | 0.162 | 32 % |
+| textbook `MT / sin(PA)` | **0.060** | **0.128** | 68 % |
+
+Wilcoxon signed-rank **p = 0.0003** over n = 78. The textbook formula wins.
+
+The proposal's premise is correct — the aponeuroses really are non-parallel, by
+1.72° at the median, and 42 % of frames exceed 2°. The conclusion
+drawn from it does not follow.
+
+And the obvious explanation is ruled out: the intersection does **not** lose
+because divergence is estimated badly. Predicted divergence tracks ground truth
+to 0.15° (1.68° against 1.72°). It loses because of what each formula
+*depends on*:
+
+| formula depends on | this pipeline's error in that quantity |
+|---|---:|
+| muscle thickness — used by the textbook formula | **0.003 relative** |
+| pennation angle — used by the textbook formula | 1.16° |
+| difference of two fitted aponeurosis angles — used by the intersection | 0.15°, but *differenced* |
+
+Thickness is recovered an order of magnitude more reliably than any angle. A
+construction that leans on it inherits that reliability; one that leans on a
+difference of angles inherits their noise twice over. **The more faithful model
+was the worse estimator.** The default is now the textbook formula, chosen on
+this evidence; `fl_method="intersection"` keeps the alternative available and
+both values travel with every estimate.
+
+### 6.2 Orientation head vs. the post-processing it replaced
+
+| route | median angular error |
+|---|---:|
+| dense orientation head (this project's contribution) | 0.79° |
+| structure tensor on the predicted mask (the classical route) | **0.72°** |
+
+The head does not beat the post-processing step it was designed to replace. Both
+are accurate in absolute terms — under a degree, against a 45° chance level —
+but the proposal's argument was that predicting orientation *directly* would be
+better than recovering it afterwards, and on this evidence it is not.
+
+What the head does buy is a dense per-pixel field with a built-in dispersion
+measure, which the structure tensor also provides. On this dataset the extra
+head is unjustified complexity; its cost is a second output branch and the
+orientation loss term.
+
+### 6.3 Sequence smoothing is nearly inert
+
+Within-run spread **before** smoothing, across the 27 recovered runs:
+
+| | before smoothing |
+|---|---:|
+| pennation angle | 0.14° |
+| fascicle length | 0.57 mm |
+| muscle thickness | 0.022 mm |
+
+There is almost nothing to average away. The five frames of a run are
+near-identical images and the model was already consistent across them, so the
+consensus step changes the answer by a negligible amount. Recovering the run
+structure was a real finding about the data; exploiting it was not worth much.
+
+### 6.4 Per-frame confidence does not predict error
+
+| error | Spearman ρ with confidence |
+|---|---:|
+| pennation angle | -0.076 |
+| fascicle length | -0.102 |
+| muscle thickness | -0.193 |
+
+Correctly signed — more confidence, less error — but weak, and not significant
+at n = 78. **The confidence is not a usable uncertainty estimate.**
+
+This one came with a methodological trap worth recording. An earlier version
+multiplied the confidence by 0.6 whenever an estimate hit a physiological clamp.
+That made it appear to detect failures: on the test set, clamped frames had
+median confidence 0.564 against 0.6 × 0.934 = 0.560 for the rest — the entire
+gap was the penalty, and the independent components did not discriminate at all
+(aponeurosis 0.892 vs 0.876, fascicle 0.993 vs 0.995). The confidence was not
+predicting the failure; it was being told about it. The term is removed and a
+test now pins the invariant that confidence may only use evidence available
+before the estimate exists.
+
+What *does* predict the failure is shallow pennation: frames whose fascicle
+length saturated had median PA 11.1° against 16.5° for the rest — the `1/sin`
+ill-conditioning, which afflicts both constructions equally.
 
 ---
 
