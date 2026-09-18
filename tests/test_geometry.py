@@ -127,8 +127,8 @@ def test_a_band_is_not_paired_with_a_fragment_of_itself():
     would report a near-zero thickness with high confidence."""
     height, width = 400, 600
     mask = np.zeros((height, width), np.uint8)
-    mask[100:106, 40:560] = 1          # one real band
-    mask[112:118, 60:540] = 1          # a detached sliver 6 px below it
+    mask[100:106, 40:560] = 1          # one real band (centroid y = 102.5)
+    mask[107:113, 60:540] = 1          # a detached sliver 7 px below it
     sup, deep, conf, n = extract_aponeuroses(mask, 1.0, 1.0)
     assert sup is None and deep is None, "paired a band with its own fragment"
     assert conf == 0.0
