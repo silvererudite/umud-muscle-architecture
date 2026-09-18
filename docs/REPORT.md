@@ -283,6 +283,19 @@ genuinely unusual cohort.
 
 ### 5.4 Leaderboard
 
+`UMUD_score`, lower is better; the public leaderboard scores 33 % of the 309
+test frames and the private leaderboard the remaining 67 %. Reference points
+visible at the time of writing:
+
+| entry | public LB |
+|---|---:|
+| best public entry | 0.283 |
+| ~median public entry | ~0.40 |
+| a published segmentation entry [9] | 0.451 |
+| DL_Track_US v0.3.1, the field's reference tool [1] | 0.779 |
+| a purely geometric no-learning baseline [8] | 1.339 |
+| **this pipeline** | <!-- SCORE --> |
+
 <!-- TABLE:leaderboard -->
 
 ## 6. Ablations
