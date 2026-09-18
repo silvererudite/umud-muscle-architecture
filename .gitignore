@@ -26,3 +26,8 @@ __pycache__/
 # ---- os ----
 .DS_Store
 Thumbs.db
+
+# Staging copy of src/umud for the Kaggle dataset — populated by
+# scripts/run_pipeline.sh so there is only one source of truth in git.
+kaggle/src/umud/
+comp_vis_project_idea_presentation.pdf
