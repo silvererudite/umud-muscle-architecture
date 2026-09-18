@@ -181,46 +181,56 @@ def fig_sequences() -> None:
 
 
 def fig_geometry_diagram() -> None:
-    """The reconstruction, drawn from the actual code paths."""
-    from umud.geometry import Aponeurosis, fascicle_length_mm
+    """The reconstruction, drawn from the actual code path.
 
-    fig, axes = plt.subplots(1, 2, figsize=(13, 4.6))
+    The divergence in the right panel is the p90 measured on the 78
+    ground-truth-annotated frames (3.1 deg), not an exaggeration chosen to make
+    the point look bigger than it is.
+    """
+    from umud.geometry import Aponeurosis, fascicle_length_mm, muscle_thickness_mm
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.8))
+    divergence_deg = 3.1          # measured p90; median is 1.7 deg
 
     for ax, (slope_s, title) in zip(axes, [
-        (0.0, "Parallel aponeuroses:\nintersection and MT/sin(PA) agree"),
-        (0.22, "Diverging aponeuroses (the real case):\nMT/sin(PA) overestimates"),
+        (0.0, "Parallel aponeuroses\nintersection and MT/sin(PA) agree"),
+        (np.tan(np.radians(divergence_deg)),
+         f"Diverging by {divergence_deg:.1f}° (the measured p90)\n"
+         "MT/sin(PA) overestimates"),
     ]):
-        superficial = Aponeurosis(np.array([slope_s, 5.0]), 0.0, 60.0, 100, 0.1)
-        deep = Aponeurosis(np.array([0.0, 25.0]), 0.0, 60.0, 100, 0.1)
-        xs = np.linspace(0, 60, 100)
+        superficial = Aponeurosis(np.array([slope_s, 5.0]), 0.0, 95.0, 100, 0.1)
+        deep = Aponeurosis(np.array([0.0, 25.0]), 0.0, 95.0, 100, 0.1)
+        xs = np.linspace(0, 95, 100)
         ax.plot(xs, superficial.y_at(xs), color=INK, lw=2.5, label="superficial aponeurosis")
-        ax.plot(xs, deep.y_at(xs), color=INK, lw=2.5, label="deep aponeurosis")
+        ax.plot(xs, deep.y_at(xs), color="#5a7a9a", lw=2.5, label="deep aponeurosis")
 
         angle = -18.0
-        fl, mode = fascicle_length_mm(superficial, deep, angle, 20.0)
-        x0 = 30.0
-        y0 = float(deep.y_at(x0))
+        thickness = muscle_thickness_mm(superficial, deep)
+        fl, _ = fascicle_length_mm(superficial, deep, angle, thickness)
+        x0, y0 = 12.0, float(deep.y_at(12.0))
         dx, dy = np.cos(np.radians(angle)), np.sin(np.radians(angle))
         if dy > 0:
             dx, dy = -dx, -dy
-        ax.plot([x0, x0 + fl * dx], [y0, y0 + fl * dy], color=ACCENT, lw=2.5,
-                label=f"fascicle, intersection L={fl:.1f} mm")
 
-        pa = abs(angle - deep.angle_deg)
-        parallel = 20.0 / np.sin(np.radians(pa))
+        pa = abs(angle - deep.angle_deg_at(x0))
+        parallel = thickness / np.sin(np.radians(pa))
         ax.plot([x0, x0 + parallel * dx], [y0, y0 + parallel * dy], color=TEAL,
-                lw=2, ls="--", label=f"MT/sin(PA) = {parallel:.1f} mm")
+                lw=3.2, ls="-", alpha=0.45, label=f"MT/sin(PA) = {parallel:.1f} mm")
+        ax.plot([x0, x0 + fl * dx], [y0, y0 + fl * dy], color=ACCENT, lw=2.4,
+                label=f"intersection = {fl:.1f} mm")
 
-        ax.annotate("", xy=(48, float(superficial.y_at(48))), xytext=(48, float(deep.y_at(48))),
+        ax.annotate("", xy=(x0, float(superficial.y_at(x0))), xytext=(x0, y0),
                     arrowprops=dict(arrowstyle="<->", color="#b3001b", lw=1.6))
-        ax.text(49, 15, "MT", color="#b3001b", fontsize=10)
-        ax.text(x0 + 3, y0 - 1.5, f"PA = {pa:.0f}°", color=ACCENT, fontsize=10)
+        ax.text(x0 - 4.5, 15, f"MT\n{thickness:.1f}", color="#b3001b", fontsize=9, ha="center")
+        ax.text(x0 + 4, y0 - 1.4, f"PA {pa:.0f}°", color=ACCENT, fontsize=10)
 
-        ax.set_xlim(0, 62); ax.set_ylim(32, 0)
+        error = abs(parallel - fl) / fl
+        ax.set_xlim(0, 96); ax.set_ylim(31, -1)
         ax.set_xlabel("lateral (mm)"); ax.set_ylabel("depth (mm)")
-        ax.set_title(title, fontsize=10)
-        ax.legend(fontsize=7.5, loc="lower left")
+        ax.set_title(title + f"\n(textbook formula is {error:+.0%} off)", fontsize=10)
+        ax.legend(fontsize=8, loc="lower right", framealpha=0.95)
 
+    fig.suptitle("Fascicle length: aponeurosis intersection vs. the textbook formula", fontsize=11)
     fig.tight_layout()
     fig.savefig(FIG / "geometry_reconstruction.png", dpi=110)
     plt.close(fig)
