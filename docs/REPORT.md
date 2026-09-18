@@ -125,6 +125,12 @@ numbers, so the agreement is evidence rather than circularity.
 
 ![calibration](figures/calibration.png)
 
+Everything downstream depends on the crop being right, so here it is rather than
+asserted — all six families, raw frame with the detected region of interest, and
+the crop the network actually sees:
+
+![regions of interest](figures/roi_by_family.png)
+
 An honest note on pixel aspect: the pipeline corrects for non-square pixels
 throughout, but on the *test* set the recovered depth and lateral scales agree
 to within 0.35 %, so the correction is a no-op there. It matters for the

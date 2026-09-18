@@ -135,6 +135,45 @@ def fig_calibration() -> None:
     print("calibration.png")
 
 
+def fig_roi_by_family() -> None:
+    """Every scanner family's region of interest, with its physical size.
+
+    Everything downstream depends on this crop being right, so it is worth
+    showing rather than asserting: the chrome is gone, the sector is intact, and
+    the implied dimensions land where the scanner presets say they should.
+    """
+    paths = list_test_images()
+    cals = [calibrate(p) for p in paths]
+    first: dict[str, tuple] = {}
+    for path, cal in zip(paths, cals):
+        first.setdefault(cal.device, (path, cal))
+
+    families = sorted(first.items())
+    fig, axes = plt.subplots(2, len(families), figsize=(3.6 * len(families), 7))
+    for i, (device, (path, cal)) in enumerate(families):
+        gray = to_gray(np.asarray(Image.open(path)))
+        left, top, right, bottom = cal.roi
+        axes[0][i].imshow(gray, cmap="gray")
+        axes[0][i].add_patch(plt.Rectangle((left, top), right - left, bottom - top,
+                                           fill=False, edgecolor=ACCENT, lw=2))
+        axes[0][i].set_title(f"{device}\n{path.name} · {cal.px_per_cm_y:.1f} px/cm", fontsize=8)
+        axes[0][i].axis("off")
+
+        roi = crop_to_roi(gray, cal)
+        axes[1][i].imshow(roi, cmap="gray")
+        axes[1][i].set_title(f"{roi.shape[1] / cal.px_per_cm_x:.2f} x "
+                             f"{roi.shape[0] / cal.px_per_cm_y:.2f} cm", fontsize=8)
+        axes[1][i].axis("off")
+
+    fig.suptitle("Calibrated region of interest per scanner family "
+                 "(top: detected ROI on the raw frame; bottom: the crop the network sees)",
+                 fontsize=10)
+    fig.tight_layout()
+    fig.savefig(FIG / "roi_by_family.png", dpi=105)
+    plt.close(fig)
+    print("roi_by_family.png")
+
+
 def fig_sequences() -> None:
     paths = list_test_images()
     cals = [calibrate(p) for p in paths]
@@ -274,6 +313,7 @@ if __name__ == "__main__":
     fig_data_overview()
     fig_dataset_stats()
     fig_calibration()
+    fig_roi_by_family()
     fig_sequences()
     fig_geometry_diagram()
     print(f"\nfigures in {FIG}")
