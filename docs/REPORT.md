@@ -392,11 +392,40 @@ visible at the time of writing:
 | best public entry | 0.283 |
 | ~median public entry | ~0.40 |
 | a published segmentation entry [9] | 0.451 |
+| **this pipeline** | **0.753** |
 | DL_Track_US v0.3.1, the field's reference tool [1] | 0.779 |
 | a purely geometric no-learning baseline [8] | 1.339 |
-| **this pipeline** | <!-- SCORE --> |
 
-<!-- TABLE:leaderboard -->
+The pipeline lands just ahead of DL_Track_US, the tool this field currently
+uses, and well behind the strongest public entries. For a system built from
+scratch in two days that is a reasonable place to be, and it is not a
+competitive result.
+
+**Our four scored submissions**, in the order they were made:
+
+| # | change | public LB |
+|---:|---|---:|
+| 1 | intersection fascicle length | 0.79372 |
+| 2 | textbook `MT / sin(PA)`, chosen on paired held-out evidence | 0.81269 |
+| 3 | *(stale file — identical bytes to #2, see below)* | 0.81269 |
+| 4 | **`auto`: textbook in range, bounded intersection outside** | **0.75306** |
+
+Submission 4 is the shipped default. It improves on either construction used
+alone — 5 % relative over the better of the two — which is the outcome the
+mechanism in §6.1 predicts: use the more accurate estimator where it is
+well-conditioned and the bounded one where it is not.
+
+**Submission 3 was a process failure worth recording.** `kaggle kernels output`
+does not reliably overwrite a file that already exists in the destination
+directory. It left a previous run's `submission.csv` in place while updating
+`predictions.csv` beside it, and the stale file was submitted: identical bytes,
+identical score, one of five daily submissions spent, and a hypothesis briefly
+believed tested when it had not been. Every validity check passed it, because a
+stale submission is perfectly valid — correct schema, correct ids, plausible
+values. The only symptom was a score identical to five decimal places.
+`scripts/check_submission.py` now verifies that the submission is the clipped
+projection of the `predictions.csv` from the same run, and that check is
+confirmed to fail on the exact file that got through.
 
 ## 6. Ablations
 
@@ -473,6 +502,24 @@ inside the physiological range, the intersection when it does not. It introduces
 no tuned parameter — the bound it tests against is the clamp the estimate would
 have hit anyway — and it is a no-op when the aponeuroses are parallel, because
 the two constructions then coincide exactly.
+
+It fired on **41 of 309 test frames**, exactly the set identified in advance as
+leaving the physiological range under `MT / sin(PA)`, and it beats both pure
+constructions on the leaderboard:
+
+| fascicle-length rule | public LB |
+|---|---:|
+| textbook `MT / sin(PA)` everywhere | 0.81269 |
+| intersection everywhere | 0.79372 |
+| **`auto`** | **0.75306** |
+
+That is the prediction of the mechanism, tested: each construction is used only
+in the regime where it is the better-conditioned of the two, and the combination
+beats either alone by 5 % relative. Note what this does *not* vindicate — the
+proposal's argument for the intersection was aponeurosis non-parallelism, and on
+that account it still loses (§6.1 opening). It earns its place through
+boundedness, which is a different property that the original reasoning never
+identified.
 
 ### 6.2 Orientation head vs. the post-processing it replaced
 
