@@ -236,7 +236,33 @@ Two evaluation sets are used: per-task held-out splits (large, partial
 coverage), and the 78 paired frames carrying both annotations, which is the only
 set where PA, FL and MT can be reconstructed from ground truth together.
 
-<!-- RESULTS -->
+## 5. Results
+
+> *Filled from the Kaggle kernel outputs (`outputs/evaluation.json`,
+> `outputs/training_summary.json`). Training was still running when this section
+> was drafted; the numbers below are inserted verbatim from the kernel log.*
+
+### 5.1 Segmentation
+
+<!-- TABLE:segmentation -->
+
+### 5.2 Geometry (pseudo-ground-truth)
+
+<!-- TABLE:geometry -->
+
+### 5.3 Generalisation across scanner families
+
+<!-- TABLE:by_device -->
+
+### 5.4 Leaderboard
+
+<!-- TABLE:leaderboard -->
+
+## 6. Ablations
+
+<!-- TABLE:ablations -->
+
+---
 
 ---
 
