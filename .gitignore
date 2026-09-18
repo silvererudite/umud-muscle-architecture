@@ -1,0 +1,28 @@
+# ---- secrets ----
+kaggle-info.txt
+kaggle.json
+.env
+
+# ---- data & artefacts ----
+data/
+outputs/
+*.zip
+*.tif
+*.png
+!docs/figures/*.png
+*.pt
+*.pth
+*.ckpt
+
+# ---- python ----
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+
+# ---- os ----
+.DS_Store
+Thumbs.db

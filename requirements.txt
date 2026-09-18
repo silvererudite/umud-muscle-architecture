@@ -1,0 +1,22 @@
+# Runtime (Kaggle kernels already provide torch/torchvision/cv2)
+numpy>=1.26
+pandas>=2.1
+scipy>=1.11
+opencv-python-headless>=4.9
+Pillow>=10.2
+tifffile>=2024.1
+scikit-image>=0.22
+torch>=2.1
+torchvision>=0.16
+albumentations>=1.4
+segmentation-models-pytorch>=0.3.3
+tqdm>=4.66
+
+# Analysis / reporting
+matplotlib>=3.8
+seaborn>=0.13
+scikit-learn>=1.4
+
+# Tooling
+kaggle>=1.6
+pytest>=8.0
