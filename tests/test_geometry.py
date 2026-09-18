@@ -119,3 +119,27 @@ def test_orientation_target_matches_independent_pca_reference():
         error = min(error, 180.0 - error)
         assert error < 4.0, f"angle {angle}: got {estimated}"
         assert resultant > 0.7
+
+
+def test_a_band_is_not_paired_with_a_fragment_of_itself():
+    """Predicted masks fragment. Two pieces of the *same* aponeurosis, a few
+    pixels apart, must not be mistaken for the superficial/deep pair — that
+    would report a near-zero thickness with high confidence."""
+    height, width = 400, 600
+    mask = np.zeros((height, width), np.uint8)
+    mask[100:106, 40:560] = 1          # one real band
+    mask[112:118, 60:540] = 1          # a detached sliver 6 px below it
+    sup, deep, conf, n = extract_aponeuroses(mask, 1.0, 1.0)
+    assert sup is None and deep is None, "paired a band with its own fragment"
+    assert conf == 0.0
+    assert n >= 2                       # both were seen, both were rejected as a pair
+
+
+def test_a_genuine_pair_is_still_found_on_the_pixel_grid():
+    mask = np.zeros((400, 600), np.uint8)
+    mask[100:106, 40:560] = 1
+    mask[300:306, 40:560] = 1
+    sup, deep, conf, _ = extract_aponeuroses(mask, 1.0, 1.0)
+    assert sup is not None and deep is not None
+    assert muscle_thickness_mm(sup, deep) == pytest.approx(200.0, abs=3.0)
+    assert conf > 0.5

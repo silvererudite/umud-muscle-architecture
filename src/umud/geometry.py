@@ -222,9 +222,17 @@ def extract_aponeuroses(
 
     candidates.sort(key=lambda c: -c[0])
     first = candidates[0]
+
+    # The two retained bands must be genuinely far apart, or we risk pairing a
+    # band with a detached fragment of itself.  Two criteria, whichever is
+    # stricter: 4 mm of real anatomy, and 3 % of the frame height.  The second
+    # is what keeps the rule meaningful when the caller works on the pixel grid
+    # (mm_per_px = 1), as the scale-free evaluation does -- there, "4 mm" would
+    # degenerate to four pixels.
+    min_separation_px = max(0.03 * height, 4.0 / max(mm_per_px_y, 1e-9))
     partner = None
     for cand in candidates[1:]:
-        if abs(cand[1] - first[1]) * mm_per_px_y >= 4.0:
+        if abs(cand[1] - first[1]) >= min_separation_px:
             partner = cand
             break
     if partner is None:
