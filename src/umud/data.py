@@ -19,7 +19,9 @@ Two facts about this data drive the whole module:
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Sequence
 
@@ -94,29 +96,74 @@ def _stable_hash(text: str) -> int:
     return int(hashlib.md5(text.encode()).hexdigest()[:8], 16)
 
 
-def split_samples(
-    samples: Sequence[Sample], val_fraction: float = 0.15, seed: int = 754
-) -> tuple[list[Sample], list[Sample]]:
-    """Deterministic split, stratified by device family.
+ASSETS = Path(__file__).resolve().parent / "assets"
 
-    Stratifying matters here: two scanner families supply most of the frames, so
-    a plain random split can leave a rare device entirely out of validation and
-    make the generalisation study impossible to run.  Hashing rather than
-    shuffling keeps the split identical between the local session and the Kaggle
-    kernel without shipping an index file.
+
+@lru_cache(maxsize=1)
+def content_index() -> dict:
+    """Precomputed duplicate groups and paired frames (see scripts/build_index.py)."""
+    path = ASSETS / "content_index.json"
+    if not path.exists():
+        return {"groups": {}, "paired": [], "counts": {}}
+    return json.loads(path.read_text())
+
+
+def content_group(task: str, name: str) -> str:
+    """Identifier shared by every file holding the same underlying frame."""
+    return content_index().get("groups", {}).get(task, {}).get(name, name)
+
+
+def paired_frames() -> list[dict]:
+    """Frames carrying both an aponeurosis and a fascicle annotation."""
+    return content_index().get("paired", [])
+
+
+def split_samples(
+    samples: Sequence[Sample],
+    val_fraction: float = 0.15,
+    seed: int = 754,
+    task: str = "",
+    group_duplicates: bool = True,
+) -> tuple[list[Sample], list[Sample]]:
+    """Deterministic split, stratified by device and grouped by image content.
+
+    Two hazards this guards against.
+
+    *Stratification.*  Two scanner families supply most of the frames, so a plain
+    random split can leave a rare device out of validation entirely and make the
+    generalisation study impossible to run.
+
+    *Duplicate leakage.*  26 % of the fascicle images are repeats of another
+    image in the same set.  Split them independently and the model is validated
+    on frames it trained on, which inflates Dice for free.  We therefore assign
+    whole content groups, never individual files.
+
+    Hashing rather than shuffling keeps the split identical between a laptop and
+    a Kaggle kernel without shipping an index of the split itself.
     """
-    by_device: dict[str, list[Sample]] = {}
+    task = task or _infer_task(samples)
+
+    by_device: dict[str, dict[str, list[Sample]]] = {}
     for sample in samples:
-        by_device.setdefault(sample.device_key, []).append(sample)
+        key = content_group(task, sample.name) if group_duplicates else sample.name
+        by_device.setdefault(sample.device_key, {}).setdefault(key, []).append(sample)
 
     train: list[Sample] = []
     val: list[Sample] = []
-    for device, group in sorted(by_device.items()):
-        ordered = sorted(group, key=lambda s: _stable_hash(f"{seed}:{s.name}"))
+    for device, groups in sorted(by_device.items()):
+        ordered = sorted(groups.items(), key=lambda kv: _stable_hash(f"{seed}:{kv[0]}"))
         n_val = max(1, int(round(val_fraction * len(ordered)))) if len(ordered) > 3 else 0
-        val.extend(ordered[:n_val])
-        train.extend(ordered[n_val:])
+        for group_key, members in ordered[:n_val]:
+            val.extend(members)
+        for group_key, members in ordered[n_val:]:
+            train.extend(members)
     return train, val
+
+
+def _infer_task(samples: Sequence[Sample]) -> str:
+    if not samples:
+        return "apo"
+    return "fasc" if "fasc" in str(samples[0].image_path) else "apo"
 
 
 # --------------------------------------------------------------------------

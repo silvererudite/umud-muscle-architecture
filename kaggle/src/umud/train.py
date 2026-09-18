@@ -142,7 +142,9 @@ def train(config: TrainConfig, data_root: Path | None = None) -> dict:
     np.random.seed(config.seed)
 
     samples = list_samples(config.task, data_root)
-    train_samples, val_samples = split_samples(samples, config.val_fraction, config.seed)
+    train_samples, val_samples = split_samples(
+        samples, config.val_fraction, config.seed, task=config.task
+    )
     print(f"[{config.task}] {len(samples)} pairs -> {len(train_samples)} train / {len(val_samples)} val", flush=True)
 
     device = _device()

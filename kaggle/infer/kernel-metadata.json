@@ -1,0 +1,15 @@
+{
+  "id": "shamimahossain/umud-infer",
+  "title": "UMUD infer",
+  "code_file": "umud_infer.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "dataset_sources": ["shamimahossain/umud-src"],
+  "competition_sources": ["umud-challenge-muscle-architecture-in-ultrasound-data"],
+  "kernel_sources": ["shamimahossain/umud-train-seg"],
+  "model_sources": []
+}
