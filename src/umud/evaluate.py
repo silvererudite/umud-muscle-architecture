@@ -258,6 +258,13 @@ def paired_geometry_error(
             "pred_fl_parallel_px": predicted.fl_parallel_mm,
             "pa_abs_err_deg": abs(predicted.pa_deg - reference.pa_deg),
             "fl_rel_err": abs(predicted.fl_mm - reference.fl_mm) / max(reference.fl_mm, 1e-6),
+            # Both constructions are scored explicitly rather than via fl_mm,
+            # which follows whichever one is currently the default.  Reading the
+            # ablation off fl_mm makes it compare the default against itself the
+            # moment the default changes -- which is exactly what happened once.
+            "fl_intersection_rel_err": abs(
+                predicted.fl_intersection_mm - reference.fl_intersection_mm
+            ) / max(reference.fl_intersection_mm, 1e-6),
             "mt_rel_err": abs(predicted.mt_mm - reference.mt_mm) / max(reference.mt_mm, 1e-6),
             # The textbook formula's error on the same frames, so the report can
             # say whether the intersection construction actually pays off once
@@ -270,7 +277,8 @@ def paired_geometry_error(
             "confidence": predicted.confidence,
         })
     return _summarise(rows, ["pa_abs_err_deg", "fl_rel_err", "mt_rel_err",
-                             "fl_parallel_rel_err", "divergence_abs_err_deg"])
+                             "fl_intersection_rel_err", "fl_parallel_rel_err",
+                             "divergence_abs_err_deg"])
 
 
 # --------------------------------------------------------------------------

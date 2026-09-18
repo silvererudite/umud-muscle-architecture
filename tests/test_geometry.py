@@ -194,3 +194,15 @@ def test_confidence_does_not_peek_at_the_clamp():
 
     assert pinched.fl_mm < free.fl_mm, "the tight prior must actually bite here"
     assert pinched.confidence == pytest.approx(free.confidence, abs=1e-9)
+
+
+def test_both_fascicle_length_values_are_always_recorded():
+    """The ablation must score the two constructions explicitly. Reading it off
+    fl_mm makes it compare the current default against itself the moment the
+    default changes — which is what happened when the default was switched."""
+    apo, fasc = phantom(thickness_px=200, angle_deg=12.0, deep_slope=0.25)
+    for method in ("parallel", "intersection"):
+        est = estimate_architecture(apo, fasc, 0.1, 0.1, fl_method=method)
+        assert np.isfinite(est.fl_parallel_mm)
+        assert np.isfinite(est.fl_intersection_mm)
+        assert est.fl_parallel_mm != pytest.approx(est.fl_intersection_mm)

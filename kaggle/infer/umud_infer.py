@@ -151,10 +151,10 @@ ablations["paired_no_orientation_head"] = {
 # Fascicle-length construction: the faithful model vs the accurate one.
 paired_rows_all = pd.DataFrame(paired["rows"])
 paired_rows_all = paired_rows_all[paired_rows_all["found"]]
-if {"fl_rel_err", "fl_parallel_rel_err"} <= set(paired_rows_all.columns) and len(paired_rows_all) > 5:
+if {"fl_intersection_rel_err", "fl_parallel_rel_err"} <= set(paired_rows_all.columns) and len(paired_rows_all) > 5:
     from scipy.stats import wilcoxon
 
-    intersection = paired_rows_all["fl_rel_err"]
+    intersection = paired_rows_all["fl_intersection_rel_err"]
     textbook = paired_rows_all["fl_parallel_rel_err"]
     ablations["fascicle_length_construction"] = {
         "intersection_median_rel": float(intersection.median()),
