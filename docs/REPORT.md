@@ -435,6 +435,17 @@ was the worse estimator.** The default is now the textbook formula, chosen on
 this evidence; `fl_method="intersection"` keeps the alternative available and
 both values travel with every estimate.
 
+**A pre-registered tension, recorded before the leaderboard was consulted.** The
+paired-set result above is a controlled comparison, but it rests on 78 frames
+from one scanner family. Against the published 0.451 entry across all 309 test
+frames, the two constructions rank differently: the textbook formula correlates
+better (Spearman +0.564 against +0.476) but sits about 10 mm higher in absolute
+terms and pushes more frames to the 140 mm ceiling (41 against 27). The two
+sources of evidence therefore disagree, and the leaderboard was used to
+adjudicate — with the commitment, made in advance, that a worse score would be
+read as "the 78-frame paired set did not generalise" rather than as licence to
+re-pick the winner after the fact. §5.4 records what happened.
+
 ### 6.2 Orientation head vs. the post-processing it replaced
 
 | route | median angular error |
