@@ -143,3 +143,17 @@ def test_a_genuine_pair_is_still_found_on_the_pixel_grid():
     assert sup is not None and deep is not None
     assert muscle_thickness_mm(sup, deep) == pytest.approx(200.0, abs=3.0)
     assert conf > 0.5
+
+
+def test_pixel_grid_evaluation_must_not_clamp():
+    """The physiological bounds are millimetres. Applied to a pixel-grid
+    measurement they pin prediction and reference to the same ceiling and report
+    an error of exactly zero — which is what the first evaluation run did."""
+    from umud.config import PRIORS, UNCLAMPED
+
+    thickness_px, length_px = 174.0, 600.0
+    _, clamped_fl, clamped_mt = PRIORS.clamp(20.0, length_px, thickness_px)
+    assert clamped_fl == 140.0 and clamped_mt == 60.0, "the trap this test guards"
+
+    _, free_fl, free_mt = UNCLAMPED.clamp(20.0, length_px, thickness_px)
+    assert free_fl == length_px and free_mt == thickness_px

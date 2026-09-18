@@ -41,6 +41,7 @@ import torch
 from PIL import Image
 
 from .calibration import calibrate
+from .config import UNCLAMPED
 from .data import Sample, list_samples, load_pair, paired_frames, split_samples
 from .geometry import estimate_architecture, extract_aponeuroses, orientation_from_field, orientation_from_mask
 from .losses import dice_score, iou_score
@@ -200,8 +201,13 @@ def paired_geometry_error(
     """End-to-end error on the 78 frames that carry both annotations.
 
     This is the only set where all three targets can be reconstructed from
-    ground truth, so it is the one that answers "how much does the segmentation
-    cost us in PA, FL and MT together".
+    ground truth, so it answers "how much does the segmentation cost us in PA,
+    FL and MT together".
+
+    Runs with clamping disabled.  The physiological bounds are in millimetres
+    and this routine works on the pixel grid, so leaving them on pins both the
+    prediction and the reference to the same ceiling and reports an error of
+    exactly zero -- which is what the first run of this evaluation did.
     """
     from .config import APO_IMAGES, APO_MASKS, COMPETITION_DIR, FASC_MASKS
 
@@ -226,7 +232,7 @@ def paired_geometry_error(
         # calibration's own error into a number meant to isolate segmentation.
         mm_x = mm_y = 1.0
 
-        reference = estimate_architecture(gt_apo, gt_fasc, mm_x, mm_y)
+        reference = estimate_architecture(gt_apo, gt_fasc, mm_x, mm_y, priors=UNCLAMPED)
 
         apo_probs, apo_pred, _ = _predict_masks(apo_model, image, device)
         fasc_probs, fasc_pred, field = _predict_masks(fasc_model, image, device)
@@ -235,7 +241,7 @@ def paired_geometry_error(
             orientation = (field[0], field[1])
         predicted = estimate_architecture(
             apo_pred, fasc_pred, mm_x, mm_y,
-            orientation=orientation, fasc_prob=fasc_probs,
+            orientation=orientation, fasc_prob=fasc_probs, priors=UNCLAMPED,
         )
 
         rows.append({
@@ -246,12 +252,25 @@ def paired_geometry_error(
             "gt_pa": reference.pa_deg, "pred_pa": predicted.pa_deg,
             "gt_fl_px": reference.fl_mm, "pred_fl_px": predicted.fl_mm,
             "gt_mt_px": reference.mt_mm, "pred_mt_px": predicted.mt_mm,
+            "gt_divergence_deg": reference.aponeurosis_divergence_deg,
+            "pred_divergence_deg": predicted.aponeurosis_divergence_deg,
+            "gt_fl_parallel_px": reference.fl_parallel_mm,
+            "pred_fl_parallel_px": predicted.fl_parallel_mm,
             "pa_abs_err_deg": abs(predicted.pa_deg - reference.pa_deg),
             "fl_rel_err": abs(predicted.fl_mm - reference.fl_mm) / max(reference.fl_mm, 1e-6),
             "mt_rel_err": abs(predicted.mt_mm - reference.mt_mm) / max(reference.mt_mm, 1e-6),
+            # The textbook formula's error on the same frames, so the report can
+            # say whether the intersection construction actually pays off once
+            # segmentation noise is in the loop rather than only in principle.
+            "fl_parallel_rel_err": abs(predicted.fl_parallel_mm - reference.fl_parallel_mm)
+            / max(reference.fl_parallel_mm, 1e-6),
+            "divergence_abs_err_deg": abs(
+                predicted.aponeurosis_divergence_deg - reference.aponeurosis_divergence_deg
+            ),
             "confidence": predicted.confidence,
         })
-    return _summarise(rows, ["pa_abs_err_deg", "fl_rel_err", "mt_rel_err"])
+    return _summarise(rows, ["pa_abs_err_deg", "fl_rel_err", "mt_rel_err",
+                             "fl_parallel_rel_err", "divergence_abs_err_deg"])
 
 
 # --------------------------------------------------------------------------

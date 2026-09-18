@@ -102,6 +102,16 @@ class PhysiologicalPriors:
 
 PRIORS = PhysiologicalPriors()
 
+# Evaluation on the pixel grid must NOT clamp: the bounds are millimetres, and a
+# thickness of 174 *pixels* would be pinned to the 60 mm ceiling on both the
+# prediction and the reference, making the error identically zero and the
+# measurement meaningless.  Offline evaluation therefore uses these.
+UNCLAMPED = PhysiologicalPriors(
+    pa_deg=(0.0, 90.0),
+    fl_mm=(0.0, 1e9),
+    mt_mm=(0.0, 1e9),
+)
+
 
 # --------------------------------------------------------------------------
 # Training configuration.
