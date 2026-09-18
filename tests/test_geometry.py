@@ -206,3 +206,36 @@ def test_both_fascicle_length_values_are_always_recorded():
         assert np.isfinite(est.fl_parallel_mm)
         assert np.isfinite(est.fl_intersection_mm)
         assert est.fl_parallel_mm != pytest.approx(est.fl_intersection_mm)
+
+
+def test_auto_prefers_the_textbook_formula_when_it_is_physiologically_sane():
+    apo, fasc = phantom(thickness_px=200, angle_deg=20.0)
+    est = estimate_architecture(apo, fasc, 0.1, 0.1, fl_method="auto")
+    assert est.fl_mm == pytest.approx(est.fl_parallel_mm)
+    assert est.failure == "parallel"
+
+
+def test_auto_falls_back_to_the_bounded_construction_at_shallow_pennation():
+    """MT/sin(PA) diverges as 1/sin; the intersection cannot, because the ray
+    must meet the superficial aponeurosis at a finite distance. The rule adds no
+    tuned parameter — the bound it tests against is the clamp the estimate would
+    hit anyway.
+
+    The aponeuroses must diverge for the rescue to change anything: when they are
+    parallel the two constructions agree exactly, by construction.
+    """
+    apo, fasc = phantom(thickness_px=180, angle_deg=6.0, deep_slope=0.12)
+    est = estimate_architecture(apo, fasc, 0.1, 0.1, fl_method="auto")
+    assert est.fl_parallel_mm > 140.0, "this phantom must actually trigger the blow-up"
+    assert est.fl_mm == pytest.approx(est.fl_intersection_mm)
+    assert est.failure == "intersection_rescue"
+    # And the rescue must land somewhere physiologically sane, not merely finite.
+    assert 20.0 < est.fl_mm < 140.0
+
+
+def test_auto_and_parallel_agree_when_the_aponeuroses_are_parallel():
+    """With parallel aponeuroses the two constructions are the same formula, so
+    the rescue is a no-op — which is what makes it safe as a default."""
+    apo, fasc = phantom(thickness_px=200, angle_deg=18.0)
+    est = estimate_architecture(apo, fasc, 0.1, 0.1, fl_method="auto")
+    assert est.fl_intersection_mm == pytest.approx(est.fl_parallel_mm, rel=0.02)

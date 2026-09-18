@@ -435,7 +435,7 @@ def estimate_architecture(
     orientation: Optional[tuple[np.ndarray, np.ndarray]] = None,
     fasc_prob: Optional[np.ndarray] = None,
     priors=PRIORS,
-    fl_method: str = "parallel",
+    fl_method: str = "auto",
 ) -> ArchitectureEstimate:
     """Full geometric reconstruction for one frame.
 
@@ -443,8 +443,23 @@ def estimate_architecture(
     ``None`` switches to the structure-tensor route, which is exactly the
     "no orientation head" ablation reported in ``docs/REPORT.md``.
 
-    ``fl_method`` is ``"parallel"`` (the textbook ``MT / sin(PA)``, the default
-    because it measures better) or ``"intersection"`` (the more faithful model).
+    ``fl_method`` selects the fascicle-length construction:
+
+    * ``"auto"`` (default) — the textbook ``MT / sin(PA)`` while it lands inside
+      the physiological range, and the intersection when it does not.
+    * ``"parallel"`` — always the textbook formula.
+    * ``"intersection"`` — always the intersection.
+
+    The ``auto`` rule introduces no tuned parameter: the bound it tests against
+    is the physiological ceiling the estimate would be clamped to anyway. It
+    exists because the two constructions win on different populations, and the
+    reason is mechanical. ``MT / sin(PA)`` leans on thickness, which this
+    pipeline recovers to 0.3 %, and is the more accurate of the two at ordinary
+    pennation angles. But it diverges as ``1/sin``: at 8° it predicts a 167 mm
+    fascicle. The intersection cannot diverge — the ray meets the superficial
+    aponeurosis at a finite distance — so it degrades gracefully exactly where
+    the other one fails. See ``docs/REPORT.md`` §6.1.
+
     Both values are always computed and returned; this only chooses which one
     lands in ``fl_mm``.
     """
@@ -511,8 +526,14 @@ def estimate_architecture(
 
     if fl_method == "intersection":
         fl = fl_intersection
-    else:
+    elif fl_method == "parallel":
         fl, mode = fl_parallel, "parallel"
+    else:  # "auto"
+        low, high = priors.fl_mm
+        if low <= fl_parallel <= high:
+            fl, mode = fl_parallel, "parallel"
+        else:
+            fl, mode = fl_intersection, "intersection_rescue"
 
     pa_c, fl_c, mt_c = priors.clamp(pa, fl, mt)
     clamped = (pa_c != pa) or (fl_c != fl) or (mt_c != mt)
