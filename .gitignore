@@ -31,3 +31,13 @@ Thumbs.db
 # scripts/run_pipeline.sh so there is only one source of truth in git.
 kaggle/src/umud/
 comp_vis_project_idea_presentation.pdf
+
+# LaTeX build artefacts
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.toc
+*.synctex.gz
+docs/report/main.pdf

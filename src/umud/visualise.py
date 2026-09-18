@@ -57,6 +57,9 @@ def annotate_frame(
     )
 
     ax.imshow(roi, cmap="gray")
+    # imshow fixes the axes to the image; every overlay below is clipped back to
+    # these limits so a long reconstructed fascicle cannot trail off the panel.
+    xlim, ylim = ax.get_xlim(), ax.get_ylim()
     if apo_mask.any():
         ax.contour(apo_mask, levels=[0.5], colors=[ACCENT], linewidths=1.1)
     if fasc_mask.any():
@@ -86,6 +89,8 @@ def annotate_frame(
                     [y0_mm / cal.mm_per_px_y, y1_mm / cal.mm_per_px_y],
                     color="#ffd166", lw=2.2)
 
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
     ax.set_title(
         f"{path.name}\nMT {estimate.mt_mm:.1f} mm · PA {estimate.pa_deg:.1f}° · "
         f"FL {estimate.fl_mm:.1f} mm · conf {estimate.confidence:.2f}",
