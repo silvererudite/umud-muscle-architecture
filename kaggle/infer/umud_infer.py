@@ -52,6 +52,20 @@ from umud.evaluate import (
 )
 from umud.predict import load_model, predict_all, to_submission
 
+def stat(summary: dict, field: str, which: str = "median") -> float:
+    """Read one statistic out of an evaluate.py summary.
+
+    Summaries omit a field entirely when nothing was measurable for it -- a
+    model that finds no aponeuroses produces no thickness error. Reaching
+    straight into the dict would then raise after the expensive part of the run
+    has already finished, so we degrade to NaN and let the numbers say so.
+    """
+    value = summary.get(field)
+    if isinstance(value, dict) and which in value:
+        return float(value[which])
+    return float("nan")
+
+
 COMPETITION = find_competition_dir()
 WEIGHTS = _locate_weights()
 OUT = pathlib.Path("/kaggle/working")
@@ -108,17 +122,21 @@ fasc_val = split_samples(list_samples("fasc", COMPETITION), task="fasc")[1]
 
 geo = aponeurosis_geometry_error(apo_model, apo_val, SIZE, device)
 evaluation["aponeurosis_geometry"] = geo
-print(f"  thickness: median rel. err {geo['thickness_rel_err']['median']:.3f}  "
-      f"deep-angle median err {geo['deep_angle_abs_err_deg']['median']:.2f} deg", flush=True)
+print(f"  aponeurosis found on {geo['found_rate']:.0%} of frames | "
+      f"thickness median rel. err {stat(geo, 'thickness_rel_err'):.3f} | "
+      f"deep-angle median err {stat(geo, 'deep_angle_abs_err_deg'):.2f} deg", flush=True)
 
 ori_head = fascicle_orientation_error(fasc_model, fasc_val, SIZE, device, use_head=True)
 evaluation["fascicle_orientation_head"] = ori_head
-print(f"  fascicle angle (orientation head): median {ori_head['angle_abs_err_deg']['median']:.2f} deg", flush=True)
+print(f"  fascicle angle (orientation head): median "
+      f"{stat(ori_head, 'angle_abs_err_deg'):.2f} deg", flush=True)
 
 paired = paired_geometry_error(apo_model, fasc_model, SIZE, device, COMPETITION, use_head=True)
 evaluation["paired_end_to_end"] = paired
-print(f"  paired end-to-end (n={paired['n']}): PA {paired['pa_abs_err_deg']['median']:.2f} deg, "
-      f"FL {paired['fl_rel_err']['median']:.3f} rel, MT {paired['mt_rel_err']['median']:.3f} rel", flush=True)
+print(f"  paired end-to-end (n={paired['n']}, found {paired['found_rate']:.0%}): "
+      f"PA {stat(paired, 'pa_abs_err_deg'):.2f} deg, "
+      f"FL {stat(paired, 'fl_rel_err'):.3f} rel, "
+      f"MT {stat(paired, 'mt_rel_err'):.3f} rel", flush=True)
 
 (OUT / "evaluation.json").write_text(json.dumps(evaluation, indent=2, default=float))
 
@@ -128,18 +146,25 @@ ablations = {}
 
 ori_tensor = fascicle_orientation_error(fasc_model, fasc_val, SIZE, device, use_head=False)
 ablations["orientation_head"] = {
-    "with_head_median_deg": ori_head["angle_abs_err_deg"]["median"],
-    "structure_tensor_median_deg": ori_tensor["angle_abs_err_deg"]["median"],
-    "with_head_mean_deg": ori_head["angle_abs_err_deg"]["mean"],
-    "structure_tensor_mean_deg": ori_tensor["angle_abs_err_deg"]["mean"],
+    "with_head_median_deg": stat(ori_head, "angle_abs_err_deg"),
+    "structure_tensor_median_deg": stat(ori_tensor, "angle_abs_err_deg"),
+    "with_head_mean_deg": stat(ori_head, "angle_abs_err_deg", "mean"),
+    "structure_tensor_mean_deg": stat(ori_tensor, "angle_abs_err_deg", "mean"),
+    "with_head_p90_deg": stat(ori_head, "angle_abs_err_deg", "p90"),
+    "structure_tensor_p90_deg": stat(ori_tensor, "angle_abs_err_deg", "p90"),
 }
-print(f"  orientation head  : {ori_head['angle_abs_err_deg']['median']:.2f} deg median", flush=True)
-print(f"  structure tensor  : {ori_tensor['angle_abs_err_deg']['median']:.2f} deg median", flush=True)
+print(f"  orientation head  : {stat(ori_head, 'angle_abs_err_deg'):.2f} deg median", flush=True)
+print(f"  structure tensor  : {stat(ori_tensor, 'angle_abs_err_deg'):.2f} deg median", flush=True)
 
 paired_no_head = paired_geometry_error(apo_model, fasc_model, SIZE, device, COMPETITION, use_head=False)
 ablations["paired_no_orientation_head"] = {
-    "pa_median_deg": paired_no_head["pa_abs_err_deg"]["median"],
-    "fl_median_rel": paired_no_head["fl_rel_err"]["median"],
+    "pa_median_deg": stat(paired_no_head, "pa_abs_err_deg"),
+    "fl_median_rel": stat(paired_no_head, "fl_rel_err"),
+}
+ablations["paired_with_orientation_head"] = {
+    "pa_median_deg": stat(paired, "pa_abs_err_deg"),
+    "fl_median_rel": stat(paired, "fl_rel_err"),
+    "mt_median_rel": stat(paired, "mt_rel_err"),
 }
 
 # Sequence smoothing: how much does it move the test predictions, and how
@@ -183,6 +208,17 @@ ablations["tta"] = {
     field: float(np.abs(frame[field].to_numpy() - no_tta_frame[field].to_numpy()).mean())
     for field in ("pa_deg", "fl_mm", "mt_mm")
 }
+
+# Does the per-frame confidence actually track error?  The report claims it
+# does; this is where that claim is either earned or withdrawn.
+paired_rows = pd.DataFrame(paired["rows"])
+paired_rows = paired_rows[paired_rows["found"]]
+if len(paired_rows) > 5 and paired_rows["confidence"].nunique() > 1:
+    ablations["confidence_vs_error"] = {
+        field: float(paired_rows["confidence"].corr(paired_rows[field], method="spearman"))
+        for field in ("pa_abs_err_deg", "fl_rel_err", "mt_rel_err")
+    }
+    print(f"  confidence vs error (Spearman): {ablations['confidence_vs_error']}", flush=True)
 
 (OUT / "ablations.json").write_text(json.dumps(ablations, indent=2, default=float))
 
