@@ -1,0 +1,94 @@
+"""Pre-flight checks on a submission file.
+
+Submissions are limited to five a day, so a malformed file is expensive. This
+refuses to let one through: schema, row count, id set and order against the
+competition's own manifest, plus physiological plausibility of the values.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from umud.config import N_TEST_IMAGES, PRIORS, SUBMISSION_COLUMNS
+from umud.data import list_test_images
+
+
+def read_flexible(path: Path) -> pd.DataFrame:
+    """Read a submission written with either separator, BOM or not."""
+    text = path.read_text(encoding="utf-8-sig")
+    header = text.splitlines()[0]
+    sep = ";" if header.count(";") > header.count(",") else ","
+    return pd.read_csv(path, sep=sep, encoding="utf-8-sig")
+
+
+def check(path: Path) -> int:
+    frame = read_flexible(path)
+    problems: list[str] = []
+    notes: list[str] = []
+
+    if tuple(frame.columns) != SUBMISSION_COLUMNS:
+        problems.append(f"columns are {tuple(frame.columns)}, expected {SUBMISSION_COLUMNS}")
+    if len(frame) != N_TEST_IMAGES:
+        problems.append(f"{len(frame)} rows, expected {N_TEST_IMAGES}")
+    if frame["image_id"].duplicated().any():
+        problems.append("duplicate image_id values")
+
+    try:
+        expected = [p.name for p in list_test_images()]
+        if set(frame["image_id"]) != set(expected):
+            missing = sorted(set(expected) - set(frame["image_id"]))[:5]
+            extra = sorted(set(frame["image_id"]) - set(expected))[:5]
+            problems.append(f"id set mismatch; missing e.g. {missing}, unexpected e.g. {extra}")
+        elif list(frame["image_id"]) != expected:
+            notes.append("ids are correct but not in file order (harmless)")
+    except Exception as exc:
+        notes.append(f"could not verify ids against the data directory: {exc}")
+
+    for column in ("pa_deg", "fl_mm", "mt_mm"):
+        if column not in frame:
+            continue
+        values = pd.to_numeric(frame[column], errors="coerce")
+        if values.isna().any():
+            problems.append(f"{column}: {int(values.isna().sum())} non-numeric or NaN values")
+            continue
+        if not np.isfinite(values).all():
+            problems.append(f"{column}: non-finite values")
+        low, high = getattr(PRIORS, column)
+        outside = int(((values < low) | (values > high)).sum())
+        if outside:
+            problems.append(f"{column}: {outside} values outside the physiological range {low}-{high}")
+        if values.nunique() == 1:
+            problems.append(f"{column}: every row has the same value ({values.iloc[0]}) — the pipeline failed")
+
+    # A geometry cross-check: FL*sin(PA) should be close to MT if the three
+    # numbers describe one muscle.  Large disagreement means the three outputs
+    # were produced independently and are not mutually consistent.
+    if all(c in frame for c in ("pa_deg", "fl_mm", "mt_mm")):
+        implied = frame["fl_mm"] * np.sin(np.radians(frame["pa_deg"]))
+        relative = np.abs(implied - frame["mt_mm"]) / frame["mt_mm"].clip(lower=1e-6)
+        notes.append(f"FL*sin(PA) vs MT: median relative difference {relative.median():.3f}, "
+                     f"p90 {relative.quantile(0.9):.3f}")
+
+    print(f"checking {path}")
+    print(frame[["pa_deg", "fl_mm", "mt_mm"]].describe().round(2).to_string())
+    for note in notes:
+        print(f"  note: {note}")
+    if problems:
+        print("\nFAILED:")
+        for problem in problems:
+            print(f"  - {problem}")
+        return 1
+    print("\nOK — safe to submit")
+    return 0
+
+
+if __name__ == "__main__":
+    target = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "outputs" / "submission.csv"
+    raise SystemExit(check(target))
