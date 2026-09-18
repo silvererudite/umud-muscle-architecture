@@ -259,6 +259,21 @@ def paired_geometry_error(
 # --------------------------------------------------------------------------
 
 
+def stat(summary: dict, field: str, which: str = "median") -> float:
+    """Read one statistic out of a summary, tolerating a missing field.
+
+    ``_summarise`` omits a field entirely when nothing was measurable for it --
+    a model that finds no aponeuroses produces no thickness error at all.
+    Callers that index straight into the dict would then raise, typically after
+    the expensive part of a run has already finished, so this degrades to NaN
+    and lets the reported number say so.
+    """
+    value = summary.get(field)
+    if isinstance(value, dict) and which in value:
+        return float(value[which])
+    return float("nan")
+
+
 def _summarise(rows: list[dict], fields: Sequence[str]) -> dict:
     import pandas as pd
 

@@ -87,3 +87,18 @@ def test_generic_detector_accepts_a_real_ruler_on_dark_chrome():
     px_per_cm, note = result
     assert px_per_cm == pytest.approx(60.0, abs=1.0)   # 30 px per 5 mm tick
     assert "left" in note
+
+
+def test_stat_degrades_to_nan_for_an_unmeasurable_field():
+    """A model that finds nothing produces a summary with the field missing.
+    Callers must get NaN, not a KeyError after an hour of GPU time."""
+    from umud.evaluate import stat
+
+    summary = {"n": 12, "found_rate": 0.0, "rows": []}
+    assert np.isnan(stat(summary, "thickness_rel_err"))
+    assert np.isnan(stat(summary, "thickness_rel_err", "p90"))
+
+    summary["thickness_rel_err"] = {"mean": 0.2, "median": 0.15, "p90": 0.4}
+    assert stat(summary, "thickness_rel_err") == pytest.approx(0.15)
+    assert stat(summary, "thickness_rel_err", "p90") == pytest.approx(0.4)
+    assert np.isnan(stat(summary, "thickness_rel_err", "p99"))

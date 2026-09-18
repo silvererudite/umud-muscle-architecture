@@ -46,25 +46,12 @@ from umud.config import find_competition_dir
 from umud.data import list_samples, list_test_images, split_samples
 from umud.evaluate import (
     aponeurosis_geometry_error,
+    stat,
     fascicle_orientation_error,
     paired_geometry_error,
     segmentation_metrics,
 )
 from umud.predict import load_model, predict_all, to_submission
-
-def stat(summary: dict, field: str, which: str = "median") -> float:
-    """Read one statistic out of an evaluate.py summary.
-
-    Summaries omit a field entirely when nothing was measurable for it -- a
-    model that finds no aponeuroses produces no thickness error. Reaching
-    straight into the dict would then raise after the expensive part of the run
-    has already finished, so we degrade to NaN and let the numbers say so.
-    """
-    value = summary.get(field)
-    if isinstance(value, dict) and which in value:
-        return float(value[which])
-    return float("nan")
-
 
 COMPETITION = find_competition_dir()
 WEIGHTS = _locate_weights()
