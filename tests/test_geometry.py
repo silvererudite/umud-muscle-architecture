@@ -91,3 +91,31 @@ def test_empty_mask_fails_loudly_rather_than_silently():
     est = estimate_architecture(np.zeros((200, 300), np.uint8), np.zeros((200, 300), np.uint8), 0.1, 0.1)
     assert est.failure == "aponeurosis_not_found"
     assert est.confidence == 0.0
+
+
+def test_orientation_target_matches_independent_pca_reference():
+    """The orientation supervision is derived, not annotated, so it needs its
+    own check: a structure tensor and a per-segment principal-axis fit are
+    independent estimators of the same quantity and must agree."""
+    from scipy import ndimage
+
+    from umud.data import orientation_target
+
+    for angle in (-30.0, -15.0, 0.0, 25.0):
+        mask = np.zeros((256, 256), np.uint8)
+        for x0 in range(20, 240, 30):
+            for t in range(60):
+                x = int(x0 + t * np.cos(np.radians(angle)))
+                y = int(128 + t * np.sin(np.radians(angle)))
+                if 0 <= x < 256 and 0 <= y < 256:
+                    mask[y, x] = 1
+        mask = ndimage.binary_dilation(mask, np.ones((2, 2))).astype(np.uint8)
+
+        field = orientation_target(mask)
+        estimated, resultant = orientation_from_field(
+            field[0], field[1], mask.astype(float), 1.0, 1.0
+        )
+        error = abs(estimated - angle)
+        error = min(error, 180.0 - error)
+        assert error < 4.0, f"angle {angle}: got {estimated}"
+        assert resultant > 0.7
