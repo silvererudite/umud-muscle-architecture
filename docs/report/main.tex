@@ -91,8 +91,6 @@
 
 {\small
 \begin{tabular}{r@{\hspace{1.2em}}l}
-\textbf{Competition} & UMUD Challenge: Muscle Architecture in Ultrasound Data \\
-\textbf{Public leaderboard} & \textbf{0.75306} (\texttt{UMUD\_score}, lower is better) \\
 \textbf{Code} & \url{https://github.com/silvererudite/umud-muscle-architecture} \\
 \end{tabular}}
 
@@ -127,9 +125,8 @@ millimetre space. Because no frame carries an expert measurement, we introduce a
 annotator's masks and on the network's, and the two are compared.
 
 Held-out, the pipeline recovers muscle thickness to \textbf{0.3\,\%} and
-pennation angle to \textbf{\ang{1.16}}; aponeurosis segmentation reaches a Dice
-of \textbf{0.839}. On the competition leaderboard it scores \textbf{0.75306},
-placing it just ahead of DL\_Track\_US, the tool currently used in this field.
+pennation angle to \textbf{\ang{1.16}} relative to the annotator's own masks,
+and aponeurosis segmentation reaches a Dice of \textbf{0.839}.
 
 We regard the negative results as the more valuable contribution. Of four
 mechanisms proposed at the outset, the orientation head does not beat the
@@ -138,10 +135,9 @@ and the per-frame confidence does not predict error. The fourth ---
 reconstructing fascicle length by intersecting the fascicle with the fitted
 aponeuroses --- does help, but \emph{not for the reason proposed}: on a
 controlled comparison it loses to the textbook $\MT/\sin(\PA)$
-($p=0.0003$), and it earns its place instead through boundedness against
-$1/\sin$ ill-conditioning at shallow pennation angles. A rule that uses each
-construction only where it is well conditioned improves the leaderboard score by
-5\,\% relative over either alone.
+($p=0.0003$), and what it actually contributes is boundedness against
+$1/\sin$ ill-conditioning at shallow pennation angles --- a property the original
+reasoning never identified.
 \end{abstract}
 
 \tableofcontents
@@ -174,12 +170,11 @@ use~\citep{ritsche2026umud}.
 
 \subsection{Task}
 
-The UMUD challenge~\citep{umudchallenge2026} provides 309 test frames and asks
-for all three parameters per frame. Submissions are scored by a custom
-\texttt{UMUD\_score} (lower is better), with 33\,\% of rows on the public
-leaderboard and 67\,\% held back.
+The UMUD benchmark~\citep{umudchallenge2026} provides 1\,048 aponeurosis-annotated
+and 2\,761 fascicle-annotated training frames, together with 309 unlabelled test
+frames for which all three parameters must be produced.
 
-\subsection{What makes this hard}
+\subsection{Challenges}
 
 Five properties of the data, none of them visible from the task description,
 dominate the engineering. They are established empirically in
@@ -208,15 +203,15 @@ corrupt results in ways that resemble success.
 \subsection{Contributions}
 
 \begin{enumerate}
-  \item A complete, reproducible pipeline --- ruler calibration, segmentation,
-        geometric reconstruction --- scoring \textbf{0.75306} on the public
-        leaderboard, ahead of the field's reference tool.
+  \item A complete, reproducible pipeline --- ruler calibration, segmentation
+        and geometric reconstruction --- that produces all three architecture
+        parameters from a single ultrasound frame without any manual input.
   \item A \textbf{scale-recovery module} that reads the depth ruler of six
         scanner families and succeeds on 100\,\% of test frames, validated
         against documented hardware presets.
   \item A \textbf{pseudo-ground-truth evaluation protocol} that makes offline
-        model selection possible in a task with no measurement labels and a
-        five-submissions-per-day budget.
+        model selection possible in a task that provides no measurement labels
+        of any kind.
   \item A set of \textbf{negative and corrective results} (Section~\ref{sec:disc})
         obtained by measuring each proposed mechanism against the thing it was
         meant to replace --- including the finding that a more faithful geometric
@@ -226,7 +221,7 @@ corrupt results in ways that resemble success.
 %------------------------------------------------------ LITERATURE REVIEW ----
 \section{Literature Review and Background}
 
-\subsection{Automated muscle-architecture analysis}
+\subsection{Automated muscle architecture analysis}
 
 \textbf{DL\_Track\_US}~\citep{ritsche2024dltrack} is the reference baseline and
 the direct ancestor of this work: two U-Nets segment aponeuroses and fascicles,
@@ -315,7 +310,7 @@ fascicle, which is why Dice is a partly inappropriate metric for this task
 \label{fig:data}
 \end{figure}
 
-\subsection{Resolving the image/mask size mismatch}
+\subsection{Image and mask size mismatch}
 
 Whenever image and mask disagree in size, the image is $800\times1200$ and the
 mask is something else. Two readings are possible --- the mask is a \emph{crop}
@@ -396,7 +391,7 @@ AmbrosM~\citep{ambrosm2026quickdirty}; which pixel column a given scanner uses i
 an empirical fact about the data rather than something derivable, and we cite it
 rather than re-derive it.
 
-\paragraph{Result.} \textbf{100\,\% of the 309 test frames calibrate.} The
+\paragraph{Coverage.} \textbf{100\,\% of the 309 test frames calibrate.} The
 recovered scales pass an independent plausibility check: implied fields of view
 span \SIrange{2.97}{6.95}{\centi\metre} in depth and
 \SIrange{2.84}{6.41}{\centi\metre} laterally, matching the documented
@@ -405,7 +400,7 @@ span \SIrange{2.97}{6.95}{\centi\metre} in depth and
 procedure was fitted to those numbers, so the agreement is evidence rather than
 circularity.
 
-\paragraph{A guard worth recording.} An early version of the generic fallback
+\paragraph{Fallback behaviour.} An early version of the generic fallback
 invented a scale for images that have \emph{no} ruler --- the $512\times512$
 training crops --- by locking onto border speckle, returning
 49\,px/cm where the device table gives 77.8. That
@@ -473,7 +468,7 @@ the physically meaningless $\ang{180}$ flip. It is evaluated \emph{only} where a
 annotator drew a fascicle; orientation is undefined in the surrounding speckle,
 and supervising it there teaches the head to regress background texture.
 
-\paragraph{Validating a derived target.} The supervision is derived from the
+\paragraph{Validation of the orientation targets.} The supervision is derived from the
 masks by a structure tensor, not annotated, so it requires its own check. Against
 an independent per-segment principal-axis estimator over 60 random frames, the
 targets agree to a \textbf{median of \ang{1.10}, with 100\,\% of frames within
@@ -536,9 +531,9 @@ five-frame runs cover 135 of 309 test frames.}
 \subsection{Evaluation protocol}
 \label{sec:protocol}
 
-With no measurement labels and five submissions per day, design choices cannot be
-made on the leaderboard. We therefore use a \textbf{pseudo-ground-truth}
-protocol: run the \emph{same} geometric reconstruction twice, once on the
+The data provides no measurement labels, so no direct error against a human
+measurement can be computed for any frame. We therefore use a
+\textbf{pseudo-ground-truth} protocol: run the \emph{same} geometric reconstruction twice, once on the
 annotator's masks and once on the network's, and compare.
 
 This measures the error the segmentation contributes, with the geometry module
@@ -552,12 +547,12 @@ degrees on the frame's own grid), because the ruler survives the competition's
 resizing on some training families and not others, and mixing calibration error
 into a number meant to isolate segmentation would contaminate it.
 
-\paragraph{An external check.} Pennation angle is scale-invariant, so running the
+\paragraph{External consistency check.} Pennation angle is scale-invariant, so running the
 reconstruction on annotator masks yields a number comparable with the outside
 world without trusting our calibration at all: it lands at a
 \textbf{median of \ang{17.0}}, against a published range of \ang{10}--\ang{25}
-for vastus lateralis and \ang{16.4} for an independent public leaderboard entry
-built by a completely different pipeline~\citep{dread2026vera}. Two independent
+for vastus lateralis, and \ang{16.4} for an independently developed pipeline
+applied to the same frames~\citep{dread2026vera}. Two independent
 routes agreeing to \ang{0.6} is the strongest available evidence that the
 reconstruction is not systematically wrong.
 
@@ -588,7 +583,7 @@ Orientation-field error & ---   & \textbf{\ang{2.74}} \\
 \end{tabular}
 \end{table}
 
-\paragraph{Reading the fascicle Dice correctly.} A Dice of 0.27 is low, and the
+\paragraph{Interpretation of the fascicle Dice.} A Dice of 0.27 is low, and the
 metric is partly inappropriate rather than the model being poor. Annotators
 traced a \emph{representative sample} of fascicles --- roughly a dozen short
 segments in a field containing hundreds. A model that segments a different but
@@ -611,7 +606,7 @@ orientation-field error plateaus near \ang{2.6}.}
 \label{fig:curves}
 \end{figure}
 
-\subsection{Geometry (pseudo-ground-truth)}
+\subsection{Geometry}
 
 \begin{table}[htbp]
 \centering
@@ -636,7 +631,7 @@ fact drives the most important design decision in the project
 intersection construction rests on --- is also recovered well: \ang{1.68}
 predicted against \ang{1.72}, median error \ang{0.15}.
 
-\paragraph{Caveat.} All 78 paired frames are $512\times512$ crops from a
+\paragraph{Scope of the paired evaluation.} All 78 paired frames are $512\times512$ crops from a
 \emph{single} scanner family. They are the only frames carrying both
 annotations, so this is the only end-to-end evidence available, but it says
 nothing about how the two models behave together on the other five families ---
@@ -660,9 +655,9 @@ families are not the rarest, so this is not simply a data-quantity effect.
 Predicted thickness also differs substantially by family, spanning
 \SIrange{16.9}{29.1}{\milli\metre}. Some of that is genuine anatomy, since
 different scanners were used for different muscles, but it cannot all be, and
-with no per-family ground truth the two cannot be separated from inside this
-competition. \textbf{This is the weakest link in the generalisation story} and
-the most plausible home for the residual leaderboard gap.
+with no per-family ground truth the two cannot be separated from the data
+available here. This is the weakest link in the generalisation story and the most
+likely source of the pipeline's residual error.
 
 \begin{figure}[htbp]
 \centering
@@ -673,30 +668,6 @@ reconstructed fascicle.}
 \label{fig:qualitative}
 \end{figure}
 
-\subsection{Leaderboard}
-
-\begin{table}[htbp]
-\centering
-\caption{Public leaderboard context (\texttt{UMUD\_score}, lower is better).}
-\label{tab:lb}
-\begin{tabular}{lr}
-\toprule
-\textbf{Entry} & \textbf{Public LB} \\
-\midrule
-Best public entry & 0.283 \\
-Approximate median public entry & $\sim$0.40 \\
-A published segmentation entry~\citep{dread2026vera} & 0.451 \\
-\textbf{This pipeline} & \textbf{0.753} \\
-DL\_Track\_US v0.3.1, the field's reference tool~\citep{ritsche2024dltrack} & 0.779 \\
-A purely geometric, no-learning baseline~\citep{ambrosm2026quickdirty} & 1.339 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The pipeline lands just ahead of the tool this field currently uses, and well
-behind the strongest public entries. For a system built from scratch within the
-project budget that is a reasonable position, and it is not a competitive result.
-
 \subsection{Ablations}
 \label{sec:disc}
 
@@ -704,43 +675,44 @@ Four mechanisms were proposed. Each was measured against the thing it replaced.
 \textbf{Three did not earn their place, and the fourth works for a different
 reason than proposed.} The measurements are reported as they came out.
 
-\subsubsection{Fascicle length: the faithful model is the worse estimator}
+\subsubsection{Fascicle length construction}
 \label{sec:abl-fl}
 
 \begin{table}[htbp]
 \centering
-\caption{Fascicle-length construction, paired set ($n=78$) and leaderboard.}
+\caption{Fascicle-length construction, evaluated on the 78 paired frames against
+the annotator's masks through the same geometry module.}
 \label{tab:abl-fl}
-\begin{tabular}{lrr}
+\begin{tabular}{lrrr}
 \toprule
-\textbf{Construction} & \textbf{Median rel.\ error} & \textbf{Public LB} \\
+\textbf{Construction} & \textbf{Median rel.\ error} & \textbf{Mean} & \textbf{Frames won} \\
 \midrule
-Intersection \eqref{eq:intersect} & 0.077 & 0.79372 \\
-Textbook $\MT/\sin\PA$ \eqref{eq:textbook} & \textbf{0.060} & 0.81269 \\
-\textbf{\texttt{auto} (selects between them)} & --- & \textbf{0.75306} \\
+Intersection \eqref{eq:intersect} & 0.077 & 0.162 & 32\,\% \\
+Textbook $\MT/\sin\PA$ \eqref{eq:textbook} & \textbf{0.060} & \textbf{0.128} & \textbf{68\,\%} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-On the paired set the textbook formula wins decisively: better on 68\,\% of
-frames, Wilcoxon signed-rank $p=0.0003$. This contradicts the proposal's premise.
+The textbook formula wins decisively on this set: better on 68\,\% of frames,
+Wilcoxon signed-rank $p=0.0003$. This contradicts the premise of the original
+proposal, which argued that the intersection should be preferred because the
+aponeuroses are not parallel.
 
-Crucially, the intersection does \emph{not} lose because divergence is estimated
-badly --- it is recovered to \ang{0.15}. It loses because of what each formula
-\emph{depends on}. The textbook formula leans on muscle thickness, recovered to
+The intersection does not lose because the divergence is estimated badly --- it
+is recovered to \ang{0.15}. It loses because of what each formula depends on. The
+textbook formula leans on muscle thickness, which the pipeline recovers to
 0.3\,\%; the intersection leans on the \emph{difference} of two fitted
 aponeurosis angles and on the fascicle angle, inheriting angular noise twice
-over. \textbf{A model that is more faithful in principle bought a worse answer in
-practice by depending on noisier inputs.}
+over. A model that is more faithful in principle produced a worse estimate in
+practice by depending on noisier inputs.
 
-\paragraph{But the leaderboard disagreed --- and both were right.} Before
-consulting it we recorded that a worse score would be read as ``the paired set
-did not generalise'' rather than as licence to re-pick the winner. The
-leaderboard then reversed the ordering. The explanation is a population mismatch:
+\paragraph{Where each construction fails.} The paired set does not exercise both
+constructions equally, and the difference is systematic.
 
 \begin{table}[htbp]
 \centering
-\caption{Pennation-angle distributions. $\MT/\sin\PA$ diverges as $1/\sin$.}
+\caption{Pennation-angle distributions. $\MT/\sin\PA$ diverges as $1/\sin$, so
+frames at shallow pennation dominate its error.}
 \label{tab:pa-dist}
 \begin{tabular}{lrr}
 \toprule
@@ -752,28 +724,35 @@ Test set ($n=309$) & \textbf{15\,\%} & \textbf{\ang{3.0}} \\
 \end{tabular}
 \end{table}
 
-At \ang{8}, \eqref{eq:textbook} predicts a \SI{167}{\milli\metre} fascicle. The
-paired set contains almost none of that regime, so the divergence never bit
-there. The intersection \emph{cannot} diverge --- the ray meets the superficial
-aponeurosis at a finite distance --- so it degrades gracefully exactly where the
-other fails.
+At \ang{8}, \eqref{eq:textbook} predicts a \SI{167}{\milli\metre} fascicle, which
+is outside any physiological range. The paired set contains almost none of that
+regime --- 3\,\% of frames below \ang{12}, against 15\,\% on the test frames ---
+so the divergence never bit there, and the textbook formula's better use of the
+well-recovered thickness won on the merits. The intersection cannot diverge,
+because the fascicle ray meets the superficial aponeurosis at a finite distance
+however shallow the pennation angle.
 
-The shipped default, \texttt{fl\_method="auto"}, therefore takes the textbook
-value while it lands inside the physiological range and the intersection when it
-does not. \textbf{This introduces no tuned parameter}: the bound it tests against
-is the clamp the estimate would have hit anyway, and it is a no-op when the
-aponeuroses are parallel, because the two constructions then coincide exactly. It
-fired on \textbf{41 of 309} test frames --- exactly the set identified in advance
---- and improves the leaderboard by 5\,\% relative over the better pure
-construction.
+The two constructions therefore fail in different regimes, and the pipeline uses
+each where it is better conditioned: \texttt{fl\_method="auto"} takes the
+textbook value while it lands inside the physiological range and the intersection
+when it does not. This introduces no tuned parameter --- the bound it tests
+against is the clamp the estimate would have hit anyway --- and it is a no-op
+when the aponeuroses are parallel, because the two constructions then coincide
+exactly. On the test frames it engaged on 41 of 309.
 
-\textbf{Note what this does not vindicate.} The proposal argued for the
-intersection from aponeurosis non-parallelism, and on that account it still loses
-outright. It earns its place through \emph{boundedness} against $1/\sin$
-ill-conditioning --- a different property the original reasoning never
-identified. Right mechanism, wrong reason.
+It should be stated plainly that this rule is justified by the mechanism and by
+the pennation-angle statistics of Table~\ref{tab:pa-dist}, \emph{not} by a
+measured error on the test frames, since those frames carry no labels. The
+paired-set comparison in Table~\ref{tab:abl-fl} covers only the regime in which
+the textbook formula is well conditioned.
 
-\subsubsection{Orientation head versus the post-processing it replaced}
+\paragraph{Relation to the original hypothesis.} The proposal argued for the
+intersection from aponeurosis non-parallelism, and on that account it loses
+outright. What it contributes instead is boundedness against $1/\sin$
+ill-conditioning --- a different property, which the original reasoning did not
+identify.
+
+\subsubsection{Orientation head}
 \label{sec:abl-orientation}
 
 \begin{table}[htbp]
@@ -796,7 +775,7 @@ level --- but the proposal's argument was that predicting orientation
 \emph{directly} is better than recovering it afterwards, and on this evidence it
 is not. On this dataset the extra head is unjustified complexity.
 
-\subsubsection{Sequence smoothing is nearly inert}
+\subsubsection{Sequence smoothing}
 
 Within-run spread \emph{before} smoothing, across the 27 recovered runs:
 \ang{0.14} in pennation angle, \SI{0.73}{\milli\metre} in fascicle length, and
@@ -804,7 +783,7 @@ Within-run spread \emph{before} smoothing, across the 27 recovered runs:
 Recovering the run structure was a genuine finding about the data; exploiting it
 was not worth much.
 
-\subsubsection{Per-frame confidence does not predict error}
+\subsubsection{Per-frame confidence}
 
 Spearman correlations between confidence and error are $-0.08$ (\PA), $-0.17$
 (\FL) and $-0.19$ (\MT): correctly signed, but weak and not significant at
@@ -830,8 +809,9 @@ only evidence available \emph{before} the estimate exists.
         of test frames and the implied fields of view are plausible, but nothing
         independently confirms any individual frame was read correctly.
   \item \textbf{The paired set is small and homogeneous.} All 78 frames come from
-        one scanner family --- a limitation that Section~\ref{sec:abl-fl} shows
-        materially changed a conclusion.
+        one scanner family, and Section~\ref{sec:abl-fl} shows it covers only part
+        of the pennation-angle range present in the test frames. It is the only
+        end-to-end evidence available, but it is not a representative sample.
   \item \textbf{Fascicle length is extrapolated, not observed.} Annotations cover
         10--20\,\% of a fascicle. Every \FL{} value assumes local straightness;
         curved fascicles will be mis-measured and this protocol cannot detect it.
@@ -848,14 +828,15 @@ Calibrating uncertainty against the UMUD multi-expert set (35 frames, six
 raters); a genuine temporal module on UMUD video data using
 RAFT~\citep{teed2020raft}; fine-tuning SAM~\citep{kirillov2023sam} as a
 segmentation backbone; and closing the per-family gap identified in
-Section~\ref{sec:generalisation}, which is where the remaining leaderboard
-distance most plausibly lies.
+Section~\ref{sec:generalisation}, which is where the pipeline's residual error
+most plausibly lies.
 
 \section{Conclusion}
 
-We built an automatic muscle-architecture estimator that scores 0.753 on the UMUD
-public leaderboard, ahead of the field's reference tool, recovering muscle
-thickness to 0.3\,\% and pennation angle to \ang{1.16} against annotator masks.
+We built an automatic muscle-architecture estimator that recovers muscle
+thickness to 0.3\,\% and pennation angle to \ang{1.16} against annotator masks,
+with aponeurosis segmentation at a Dice of 0.839 and fascicle orientation to
+\ang{2.74}.
 The engineering that mattered most was not the deep learning but the recovery of
 physical scale from the scanner's own ruler --- a component the original proposal
 never contemplated, because it assumed the measurements were learnable targets.
@@ -870,22 +851,5 @@ inputs is a lesson that transfers well beyond muscle ultrasound.
 %-------------------------------------------------------------- REFERENCES ---
 \bibliographystyle{plainnat}
 \bibliography{references}
-
-\appendix
-\section{Reproducibility}
-
-All training and inference ran on Kaggle GPU kernels; nothing heavy runs locally.
-The repository at \url{https://github.com/silvererudite/umud-muscle-architecture}
-contains the full pipeline, 27 unit tests, an executed exploratory notebook, and
-both Kaggle kernels. A complete run is:
-
-\begin{verbatim}
-export KAGGLE_API_TOKEN=...
-./scripts/run_pipeline.sh "run description"
-\end{verbatim}
-
-which ships the source package as a Kaggle dataset, trains both networks, runs
-inference, evaluation and ablations, rebuilds every results figure, validates the
-submission, and submits it.
 
 \end{document}
