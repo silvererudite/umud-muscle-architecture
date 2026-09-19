@@ -21,6 +21,17 @@ tectonic -X compile main.tex
 pdflatex main && bibtex main && pdflatex main && pdflatex main
 ```
 
+## Overleaf bundle
+
+```bash
+./scripts/make_overleaf_zip.sh      # -> umud-report-overleaf.zip
+```
+
+Produces a self-contained archive (main.tex + references.bib + only the figures
+the report cites) that compiles on Overleaf with no path edits. The script fails
+loudly if a cited figure is missing rather than shipping a bundle that will not
+build. The zip is gitignored, being derived.
+
 ## Structure
 
 Figures are pulled from `../figures/` via `\graphicspath`, so regenerating them

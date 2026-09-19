@@ -31,7 +31,9 @@
 \usepackage[colorlinks=true,linkcolor=NavyBlue,citecolor=NavyBlue,urlcolor=NavyBlue]{hyperref}
 \usepackage{url}
 
-\graphicspath{{../figures/}}
+% Works both in the repository (figures live in ../figures/) and in the
+% Overleaf bundle (figures/ sits beside main.tex).
+\graphicspath{{figures/}{../figures/}}
 
 % Float placement: these figures are wide, and LaTeX's defaults strand them on
 % half-empty pages. Loosen the fractions rather than forcing [H] everywhere.

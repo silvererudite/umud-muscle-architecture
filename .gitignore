@@ -41,3 +41,6 @@ comp_vis_project_idea_presentation.pdf
 *.toc
 *.synctex.gz
 docs/report/main.pdf
+
+# Overleaf bundle — regenerate with scripts/make_overleaf_zip.sh
+umud-report-overleaf.zip
