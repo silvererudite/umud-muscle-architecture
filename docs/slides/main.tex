@@ -92,7 +92,7 @@
 \end{frame}
 
 %--------------------------------------------------------------------- 2 ----
-\begin{frame}{The problem}
+\begin{frame}{Motivation}
   \begin{columns}[T]
   \begin{column}{0.53\textwidth}
     Three numbers describe muscle architecture:
@@ -131,39 +131,43 @@
 \end{frame}
 
 %--------------------------------------------------------------------- 3 ----
-\begin{frame}{What the task actually is}
-  The data does not make this a supervised regression problem.
-  \vspace{0.35cm}
+\begin{frame}{Dataset and task}
+  % NOTE: a frame body must not begin with a bare {...} group. With the custom
+  % frametitle template above, beamer absorbs it and the content silently
+  % disappears from the PDF with no error. Start with a command instead.
+  \small\textbf{Dataset:} the \hl{UMUD} benchmark (Ritsche et al., 2026), which
+  indexes the DL\_Track\_US training sets.
+  \textcolor{Muted}{1\,048 aponeurosis and 2\,761 fascicle frames, 309 unlabelled
+  test frames, six scanner families.}\normalsize
+  \vspace{0.1cm}
+
+  It does not make this a supervised regression problem.
+  \vspace{0.18cm}
 
   \begin{columns}[T]
   \begin{column}{0.48\textwidth}
     \textbf{\color{Red} No measurement labels}\\[0.15cm]
-    {\small Training data gives \emph{masks} only, never a thickness or an angle.
+    {\footnotesize Training data gives \emph{masks} only, never a thickness or an angle.
     The three targets must be \hl{reconstructed geometrically}.}
-    \vspace{0.45cm}
+    \vspace{0.22cm}
 
     \textbf{\color{Red} No scale metadata}\\[0.15cm]
-    {\small Two targets are in millimetres; the network sees pixels. The
+    {\footnotesize Two targets are in millimetres; the network sees pixels. The
     conversion must be \hl{read off the scanner's own depth ruler}.}
   \end{column}
   \begin{column}{0.48\textwidth}
     \textbf{\color{Red} Silent data defects}\\[0.15cm]
-    {\small
+    {\footnotesize
     \begin{itemize}\setlength\itemsep{0.15cm}
       \item 70\% of frames disagree in size with their own mask
-      \item 26\% of fascicle images are duplicates
+      \item 26\% of fascicle images are duplicates, so a naive split leaks
+            \num{179} groups into validation. Content-grouped splitting
+            reduces that to \num{0}
     \end{itemize}
-    Neither raises an error. Both corrupt results in ways that look like
-    success.}
+    Neither defect raises an error.}
   \end{column}
   \end{columns}
 
-  \vspace{0.4cm}
-  \begin{center}
-  \colorbox{Ink!8}{\parbox{0.92\textwidth}{\centering\small
-  A naive split leaks \num{179} duplicate groups into validation.
-  Content-grouped splitting reduces that to \num{0}.}}
-  \end{center}
 \end{frame}
 
 %--------------------------------------------------------------------- 4 ----
@@ -273,7 +277,7 @@
 \end{frame}
 
 %--------------------------------------------------------------------- 7 ----
-\begin{frame}{Evaluating without any measurement labels}
+\begin{frame}{Evaluation protocol}
   No frame carries an expert measurement, so error against a human cannot be
   computed anywhere.
   \vspace{0.3cm}
@@ -380,7 +384,7 @@
 \end{frame}
 
 %-------------------------------------------------------------------- 10 ----
-\begin{frame}{The main finding}
+\begin{frame}{Discussion}
   \begin{center}
   \colorbox{Accent!14}{\parbox{0.93\textwidth}{\centering
   \textbf{A model that is more faithful in principle can be a worse estimator
@@ -423,7 +427,7 @@
 \end{frame}
 
 %-------------------------------------------------------------------- 11 ----
-\begin{frame}{Closing}
+\begin{frame}{Conclusion}
   \begin{columns}[T]
   \begin{column}{0.48\textwidth}
     {\small\textbf{What worked}}

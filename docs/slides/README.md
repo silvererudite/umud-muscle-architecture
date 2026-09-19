@@ -7,16 +7,16 @@ Beamer deck for the CSE 754 project, 11 slides at 16:9.
 | | Slide | Cumulative |
 |---:|---|---:|
 | 1 | Title | 0:00 |
-| 2 | The problem | 0:15 |
-| 3 | What the task actually is | 0:45 |
+| 2 | Motivation | 0:15 |
+| 3 | Dataset and task | 0:45 |
 | 4 | Pipeline | 1:20 |
 | 5 | Scale calibration | 1:55 |
 | 6 | Geometric reconstruction | 2:20 |
-| 7 | Evaluating without measurement labels | 2:40 |
+| 7 | Evaluation protocol | 2:40 |
 | 8 | Results | 3:10 |
 | 9 | Ablations | 3:40 |
-| 10 | The main finding | 4:10 |
-| 11 | Closing | 4:40 |
+| 10 | Discussion | 4:10 |
+| 11 | Conclusion | 4:40 |
 
 Roughly 30 seconds per slide. Slides 9 and 10 carry the argument, so if you run
 short, compress 5 and 6 rather than those.
