@@ -12,7 +12,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 
 build_one() {
-  local name="$1"                       # "report" or "review"
+  local name="$1"                       # report, review or slides
   local src="$HERE/docs/$name"
   local out="$HERE/umud-$name-overleaf.zip"
   local stage; stage="$(mktemp -d)/umud-$name"
@@ -60,6 +60,6 @@ TXT
   printf '  %-34s %s figures, %s\n' "$(basename "$out")" "$count" "$(du -h "$out" | cut -f1)"
 }
 
-targets=("${@:-report review}")
+targets=("${@:-report review slides}")
 echo "building Overleaf bundles:"
 for t in ${targets[@]}; do build_one "$t"; done
