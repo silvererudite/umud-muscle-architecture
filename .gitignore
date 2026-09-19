@@ -52,3 +52,7 @@ docs/review/main.docx
 CSE754*.pdf
 *CSE754 Assignment.pdf
 docs/review/assignment-review-paper.pdf
+
+# Presentation script: personal notes, not part of the deliverable
+docs/slides/script.md
+docs/slides/main.pdf
