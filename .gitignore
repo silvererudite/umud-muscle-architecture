@@ -47,3 +47,8 @@ docs/report/main.pdf
 umud-*-overleaf.zip
 docs/review/main.pdf
 docs/review/main.docx
+
+# Class allocation sheet: contains other students names and IDs, never commit
+CSE754*.pdf
+*CSE754 Assignment.pdf
+docs/review/assignment-review-paper.pdf
