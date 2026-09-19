@@ -10,11 +10,11 @@ Beamer deck for the CSE 754 project, 11 slides at 16:9.
 | 2 | The problem | 0:15 |
 | 3 | What the task actually is | 0:45 |
 | 4 | Pipeline | 1:20 |
-| 5 | Recovering physical scale | 1:55 |
-| 6 | Geometry: from masks to millimetres | 2:20 |
+| 5 | Scale calibration | 1:55 |
+| 6 | Geometric reconstruction | 2:20 |
 | 7 | Evaluating without measurement labels | 2:40 |
 | 8 | Results | 3:10 |
-| 9 | What did not earn its place | 3:40 |
+| 9 | Ablations | 3:40 |
 | 10 | The main finding | 4:10 |
 | 11 | Closing | 4:40 |
 
