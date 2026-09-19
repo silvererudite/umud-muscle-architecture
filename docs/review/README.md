@@ -3,16 +3,16 @@
 Review of **Karras et al., *Alias-Free Generative Adversarial Networks*
 (StyleGAN3), NeurIPS 2021** — A\* venue, GAN paper.
 
+Sections map to the assignment rubric as follows (the marks are not printed in
+the document itself):
+
 | Section | Marks |
 |---|---:|
-| Problem statement | 1 |
-| Methodology and analysis | 2 |
-| Results and outcomes | 2 |
-| Limitations and research gaps | 2 |
-| Concluding remarks — suggested improvements | 3 |
-
-The mark allocation is printed beside each section heading in the PDF so the
-mapping to the rubric is visible at a glance.
+| 1. Problem Statement | 1 |
+| 2. Methodology and Analysis | 2 |
+| 3. Results and Outcomes | 2 |
+| 4. Limitations and Research Gaps | 2 |
+| 5. Concluding Remarks and Suggested Improvements | 3 |
 
 ## Building
 
