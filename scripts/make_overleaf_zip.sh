@@ -1,74 +1,65 @@
 #!/usr/bin/env bash
-# Build a self-contained Overleaf bundle for the course report.
+# Build a self-contained Overleaf bundle for one of the LaTeX documents.
 #
-#   ./scripts/make_overleaf_zip.sh          -> umud-report-overleaf.zip
+#   ./scripts/make_overleaf_zip.sh report   -> umud-report-overleaf.zip
+#   ./scripts/make_overleaf_zip.sh review   -> umud-review-overleaf.zip
+#   ./scripts/make_overleaf_zip.sh          -> both
 #
-# The bundle carries only the figures the report actually cites, so it stays
-# small and nothing silently rots when a figure is renamed.
+# The bundle carries only the figures the document actually cites, so it stays
+# small and a renamed figure fails loudly here rather than silently on Overleaf.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$HERE/docs/report"
-OUT="$HERE/umud-report-overleaf.zip"
-STAGE="$(mktemp -d)/umud-report"
-trap 'rm -rf "$(dirname "$STAGE")"' EXIT
 
-mkdir -p "$STAGE/figures"
-cp "$SRC/main.tex" "$SRC/references.bib" "$STAGE/"
+build_one() {
+  local name="$1"                       # "report" or "review"
+  local src="$HERE/docs/$name"
+  local out="$HERE/umud-$name-overleaf.zip"
+  local stage; stage="$(mktemp -d)/umud-$name"
 
-# Copy exactly the figures cited by \includegraphics, and fail loudly if one
-# is missing rather than shipping a bundle that will not compile.
-missing=0
-while IFS= read -r fig; do
-  if [ -f "$HERE/docs/figures/$fig" ]; then
-    cp "$HERE/docs/figures/$fig" "$STAGE/figures/"
-  else
-    echo "MISSING FIGURE: $fig" >&2
-    missing=1
-  fi
-done < <(grep -o '\\includegraphics\(\[[^]]*\]\)\?{[^}]*}' "$SRC/main.tex" \
-         | sed 's/.*{\(.*\)}/\1/' | sort -u)
-[ "$missing" -eq 0 ] || { echo "aborting: figures missing" >&2; exit 1; }
+  [ -f "$src/main.tex" ] || { echo "no main.tex in $src" >&2; return 1; }
 
-cat > "$STAGE/README.txt" <<'TXT'
-Measuring Muscle, Automatically -- CSE 754 course project report
-================================================================
+  mkdir -p "$stage/figures"
+  cp "$src/main.tex" "$stage/"
+  [ -f "$src/references.bib" ] && cp "$src/references.bib" "$stage/"
+
+  local missing=0 count=0
+  while IFS= read -r fig; do
+    [ -n "$fig" ] || continue
+    if   [ -f "$HERE/docs/figures/$fig" ]; then cp "$HERE/docs/figures/$fig" "$stage/figures/"; count=$((count+1))
+    elif [ -f "$src/figures/$fig" ];       then cp "$src/figures/$fig"       "$stage/figures/"; count=$((count+1))
+    else echo "MISSING FIGURE: $fig" >&2; missing=1
+    fi
+  done < <(grep -o '\\includegraphics\(\[[^]]*\]\)\?{[^}]*}' "$src/main.tex" \
+           | sed 's/.*{\(.*\)}/\1/' | sort -u)
+  [ "$missing" -eq 0 ] || { echo "aborting: figures missing" >&2; return 1; }
+  [ "$count" -gt 0 ] || rmdir "$stage/figures"
+
+  cat > "$stage/README.txt" <<TXT
+CSE 754 -- $name
 
 HOW TO USE ON OVERLEAF
-
   1. New Project -> Upload Project -> select this .zip
   2. Press Recompile. Nothing needs editing first.
 
-  Overleaf's defaults are correct for this document (pdfLaTeX + BibTeX).
-  If the bibliography shows as [?], press Recompile once more -- BibTeX needs
-  a second pass to resolve citations.
+  Overleaf's defaults are correct (pdfLaTeX + BibTeX). If the bibliography
+  shows as [?], press Recompile once more -- BibTeX needs a second pass.
 
 CONTENTS
-
-  main.tex        the report
-  references.bib  bibliography (13 entries)
-  figures/        every figure the report cites
-
-EDITING NOTES
-
-  * Notation macros are defined near the top of main.tex: \MT, \PA, \FL.
-    Change them once and every occurrence updates.
-  * Group Information is the tabular on the title page.
-  * Figures resolve via \graphicspath, which is set to look in figures/ and
-    then ../figures/ -- so this bundle and the git repository both work.
-  * Section labels follow \label{sec:...}; cross-references use \ref{}.
-
-  Every number in the report traces back to the generated artefacts in the
-  repository (outputs/evaluation.json, outputs/ablations.json,
-  outputs/training_summary.json).
+  main.tex        the document
+  references.bib  bibliography
+  figures/        every figure the document cites (if any)
 
 SOURCE
-
   https://github.com/silvererudite/umud-muscle-architecture
 TXT
 
-rm -f "$OUT"
-( cd "$(dirname "$STAGE")" && zip -q -r "$OUT" "$(basename "$STAGE")" )
+  rm -f "$out"
+  ( cd "$(dirname "$stage")" && zip -q -r "$out" "$(basename "$stage")" )
+  rm -rf "$(dirname "$stage")"
+  printf '  %-34s %s figures, %s\n' "$(basename "$out")" "$count" "$(du -h "$out" | cut -f1)"
+}
 
-echo "wrote $OUT"
-unzip -l "$OUT" | tail -3
+targets=("${@:-report review}")
+echo "building Overleaf bundles:"
+for t in ${targets[@]}; do build_one "$t"; done

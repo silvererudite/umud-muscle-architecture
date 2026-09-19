@@ -1,0 +1,587 @@
+%==============================================================================
+%  Paper Review: Alias-Free Generative Adversarial Networks (StyleGAN3)
+%  CSE 754 -- Deep Learning for Computer Vision -- Review Assignment (10 marks)
+%
+%  Compile:  pdflatex main -> bibtex main -> pdflatex main -> pdflatex main
+%  (or press Recompile on Overleaf)
+%==============================================================================
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{caption}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage[numbers,sort&compress]{natbib}
+
+\definecolor{NavyBlue}{HTML}{1D3557}
+\definecolor{Accent}{HTML}{E07A1F}
+
+\usepackage[colorlinks=true,linkcolor=NavyBlue,citecolor=NavyBlue,urlcolor=NavyBlue]{hyperref}
+\usepackage{url}
+
+\graphicspath{{figures/}{../figures/}}
+\captionsetup{font=small,labelfont=bf}
+\setlength{\parskip}{0.35em}
+
+% A marks-visible section command, so the grader can see the mapping at a glance.
+\newcommand{\marksec}[2]{%
+  \section[#1]{#1\hfill\normalsize\normalfont\textcolor{Accent}{[#2]}}}
+
+\begin{document}
+
+%------------------------------------------------------------------- TITLE ---
+\begin{center}
+{\LARGE\bfseries Paper Review\par}
+\vspace{0.4em}
+{\Large Alias-Free Generative Adversarial Networks (StyleGAN3)\par}
+\vspace{0.8em}
+{\color{Accent}\rule{0.5\textwidth}{1pt}}
+\vspace{0.9em}
+
+\begin{tabular}{r@{\hspace{1.1em}}l}
+\textbf{Reviewed paper} & T. Karras, M. Aittala, S. Laine, E. Härkönen, J. Hellsten,\\
+                        & J. Lehtinen, T. Aila. \emph{Alias-Free Generative Adversarial}\\
+                        & \emph{Networks}. NeurIPS 2021 (arXiv:2106.12423).\\[0.35em]
+\textbf{Venue rank}     & NeurIPS --- A* (CORE).\\[0.35em]
+\textbf{Reviewer}       & Shamima Hossain, ID 21141119\\[0.35em]
+\textbf{Course}         & CSE 754 --- Deep Learning for Computer Vision\\[0.35em]
+\textbf{Date}           & \today
+\end{tabular}
+\end{center}
+
+\vspace{0.8em}
+\hrule
+\vspace{0.6em}
+
+\noindent\textbf{Summary.}
+StyleGAN3 makes a diagnosis and a repair. The diagnosis is that GAN generators
+secretly depend on absolute pixel coordinates, so fine detail sticks to the image
+grid instead of to the surfaces it belongs to; the paper traces this to
+\emph{aliasing} introduced by the generator's own upsampling and nonlinearities.
+The repair is to reinterpret every feature map as a bandlimited continuous
+signal and to make each layer respect that interpretation. The outcome is a
+generator that is translation- and rotation-equivariant to sub-pixel precision
+while matching StyleGAN2's FID. This review argues that the diagnosis is the
+paper's real contribution, that the evaluation is narrower than the claims, and
+that the most interesting open question --- whether equivariance is even
+desirable outside natural images --- is left untouched.
+
+\vspace{0.4em}
+\hrule
+\vspace{0.8em}
+
+%=========================================================== 1. PROBLEM  =====
+\marksec{Problem Statement}{1 mark}
+
+Generative adversarial networks~\citep{goodfellow2014gan} build images
+hierarchically: coarse, low-resolution features are upsampled, mixed by
+convolutions, and enriched with new detail at each scale. The implicit promise of
+that design is that the position of a fine feature is inherited from the coarse
+feature it belongs to --- move the head and the nose moves with it, and the skin
+pores move with the nose.
+
+The paper observes that this promise is not kept. In StyleGAN2~\citep{karras2020stylegan2},
+much of the fine detail is instead pinned to \emph{absolute pixel coordinates}.
+The authors name the symptom \textbf{``texture sticking''}: during a latent-space
+interpolation, hair and fur do not travel with the head but remain fixed to the
+screen, producing horizontal streaks when a pixel column is stacked over time
+(the paper's Figure~1). Averaging images generated from a small latent
+neighbourhood should give a uniformly blurry result; with StyleGAN2 some regions
+stay unnaturally sharp, because they never moved.
+
+The paper's central claim is that this is not a training artefact or a capacity
+problem but a \textbf{signal-processing bug}. Generators can bypass the intended
+hierarchy by reading positional information that leaks in through four side
+channels: image borders, per-pixel noise inputs, positional encodings, and ---
+the one the paper focuses on --- \textbf{aliasing}. Whenever a layer produces
+frequencies above the Nyquist limit of its own sampling grid, those frequencies
+fold back as low-frequency content that is tied to the grid rather than to the
+image. The generator can then use this folded content as a coordinate reference.
+
+\paragraph{Why it matters.} A still image whose texture is glued to the grid may
+look perfectly good; the defect only becomes visible in motion. The problem is
+therefore invisible to FID~\citep{heusel2017fid}, the field's dominant metric,
+which is exactly why it persisted through several generations of state-of-the-art
+models. The paper's stated goal is a generator whose sub-pixel feature positions
+are inherited entirely from coarse features, making GANs usable for video and
+animation rather than for isolated stills.
+
+\paragraph{Assessment.} The problem statement is unusually strong. It identifies
+a defect that the community's standard metric structurally cannot see, gives it a
+falsifiable mechanistic cause, and motivates it with a demonstration that needs no
+metric at all. The weakness --- developed in §\ref{sec:limits} --- is that the
+motivating example is about \emph{local, hierarchical} motion (nose with head),
+whereas what the paper ultimately delivers and measures is equivariance to
+\emph{global} rigid transforms of the whole image.
+
+%======================================================= 2. METHODOLOGY  =====
+\marksec{Methodology and Analysis}{2 marks}
+
+\subsection{The central idea: discrete arrays as continuous signals}
+
+The paper's method follows from a single reframing. A feature map is not an array
+of numbers but a \emph{sampled representation of a bandlimited continuous
+signal}. By the Nyquist--Shannon theorem, a feature map sampled on a grid of
+spacing $1/s$ can faithfully represent only frequencies below $s/2$, and the
+discrete array $Z$ and its continuous counterpart $z$ are related by convolution
+with an ideal interpolation filter,
+\begin{equation}
+z(x) = (\phi_s * Z)(x), \qquad
+\phi_s(x) = \operatorname{sinc}(s x_0)\cdot\operatorname{sinc}(s x_1).
+\end{equation}
+Every operation in the generator must then be understood as an operation on the
+\emph{continuous} signal. An operation is admissible only if (i) it commutes with
+translation and rotation in the continuous domain, and (ii) its output remains
+bandlimited to the grid that will store it. Any layer violating (ii) aliases, and
+aliasing is what leaks coordinates.
+
+This reframing immediately isolates the culprit. Convolutions and upsampling are
+linear and easy to make well-behaved. \textbf{Pointwise nonlinearities are the
+only operation that creates genuinely new frequency content} --- applying ReLU to
+a continuous signal can introduce arbitrarily high frequencies. They are
+therefore simultaneously the generator's only source of new detail and its only
+source of aliasing. That observation is the paper's intellectual core.
+
+\subsection{Measuring the property before fixing it}
+
+Before changing anything the authors define two metrics, reported as PSNR in
+decibels. For translation,
+\begin{equation}
+\text{EQ-T} = 10\log_{10}\!\left(
+I_{\max}^{2} \big/
+\mathbb{E}\Big[\big(g(t_x[z_0];w)_c(p) - t_x[g(z_0;w)]_c(p)\big)^{2}\Big]\right),
+\end{equation}
+comparing the generator's output after translating its input against the
+translation of its output; EQ-R is the analogue for rotations drawn uniformly
+from $[0^\circ,360^\circ)$. Higher is better. Defining the measurement first, then
+deriving architecture changes against it, is good practice and makes the
+subsequent ablation legible --- though §\ref{sec:limits} argues it also creates a
+circularity the paper does not resolve.
+
+\subsection{The nine changes}
+
+The redesign proceeds through named configurations, each isolating one change
+(Table~\ref{tab:configs}).
+
+\begin{description}[leftmargin=1.6em,style=nextline,itemsep=0.25em]
+\item[B --- Fourier features.] The learned $4{\times}4$ constant input is replaced
+  by Fourier features, which define a spatially infinite map that can be
+  translated and rotated \emph{exactly} rather than approximately. This is what
+  makes the input side of the equivariance question well-posed at all.
+\item[C --- No noise inputs.] StyleGAN2's per-pixel noise is removed. It is a
+  literal coordinate reference: stochastic detail keyed to grid position. Removing
+  it costs the model its source of fine stochastic variation --- a real sacrifice,
+  discussed later.
+\item[D --- Simplified generator.] Reduced mapping-network depth, and mixing and
+  path-length regularisation disabled, to give the redesign a clean baseline.
+\item[E --- Boundaries and upsampling.] Feature maps are given a small margin so
+  the ``infinite extent'' assumption approximately holds near borders, and
+  upsampling filters are improved.
+\item[F --- Filtered nonlinearities.] The key change. The ideal operation is
+  $\psi_s * \sigma(z)$: apply the nonlinearity in the continuous domain, then
+  low-pass filter away the frequencies it created. This cannot be computed
+  exactly, so it is approximated by \textbf{upsample $\to$ LReLU $\to$
+  downsample}, with a $2\times$ temporary resolution increase found sufficient in
+  practice.
+\item[G --- Non-critical sampling.] Filter cutoffs are lowered below the Nyquist
+  limit, deliberately sacrificing a sliver of representable bandwidth to suppress
+  the aliasing that critical sampling leaves behind.
+\item[H --- Transformed Fourier features.] A learned global transform is applied
+  to the input features, letting the model place the whole synthesis frame.
+\item[T --- Flexible layer specifications.] Per-layer cutoffs and sampling rates
+  become free parameters chosen by an explicit schedule rather than inherited from
+  StyleGAN2. Yields \textbf{StyleGAN3-T}.
+\item[R --- Rotation equivariance.] Separable filters are replaced by radially
+  symmetric $\mathrm{jinc}$ filters and $3{\times}3$ convolutions by $1{\times}1$,
+  since neither separability nor square kernels are rotation-invariant. Yields
+  \textbf{StyleGAN3-R}, with 56\,\% fewer parameters per layer.
+\end{description}
+
+\subsection{Analysis of the methodology}
+
+\paragraph{What is strong.} The work is \emph{theory-first} in a literature that
+is overwhelmingly empirical. The changes are not hyperparameter search; each is
+derived from a stated requirement, and the ablation shows each one paying off in
+the predicted direction. The identification of nonlinearities as the unique
+aliasing source is genuinely illuminating and transfers beyond GANs: any
+generative decoder with pointwise nonlinearities has the same defect.
+
+\paragraph{Where theory and implementation separate.} The continuous-domain
+argument is exact, but every realisation is an approximation, and the paper is
+candid that the approximations are empirical. The ideal filter has infinite
+support; a windowed Kaiser filter of size $n=6$ is used. The ideal nonlinearity
+requires the continuous domain; $2\times$ upsampling is used because it ``has
+been found sufficient''. The parameter ablation makes the gap visible: raising
+upsampling to $m=4$ improves EQ-T from 66.65 to 74.21\,dB but costs $2.31\times$
+training time. Equivariance is therefore not achieved but \emph{purchased}, along
+a continuum, and the operating point is chosen by taste rather than derived.
+
+\paragraph{An asymmetry the paper acknowledges but does not act on.} Only the
+generator is treated. The discriminator remains an ordinary aliasing CNN, and it
+is the discriminator that defines the training signal. If $D$ prefers to see
+front teeth at particular pixel locations, $G$ is rewarded for putting them
+there, no matter how equivariant $G$'s internals are. The paper notes exactly this
+in its limitations --- and stops. Given that the same continuous-signal treatment
+would apply to $D$ essentially unchanged, this is the most conspicuous piece of
+unfinished work in the paper.
+
+%============================================================ 3. RESULTS  =====
+\marksec{Results and Outcomes}{2 marks}
+
+\subsection{The configuration ladder}
+
+\begin{table}[htbp]
+\centering
+\caption{Progressive results on unaligned FFHQ at $256^2$ (paper's Figure~3,
+left). FID lower is better; EQ-T and EQ-R in dB, higher is better.}
+\label{tab:configs}
+\small
+\begin{tabular}{llrrr}
+\toprule
+& \textbf{Configuration} & \textbf{FID} $\downarrow$ & \textbf{EQ-T} $\uparrow$ & \textbf{EQ-R} $\uparrow$ \\
+\midrule
+A & StyleGAN2                       & 5.14 & ---   & ---   \\
+B & + Fourier features              & 4.79 & 16.23 & 10.81 \\
+C & + No noise inputs               & 4.54 & 15.81 & 10.84 \\
+D & + Simplified generator          & 5.21 & 19.47 & 10.41 \\
+E & + Boundaries \& upsampling      & 6.02 & 24.62 & 10.97 \\
+F & + Filtered nonlinearities       & 6.35 & \textbf{30.60} & 10.81 \\
+G & + Non-critical sampling         & 4.78 & \textbf{43.90} & 10.84 \\
+H & + Transformed Fourier features  & 4.64 & 45.20 & 10.61 \\
+T & + Flexible layers (StyleGAN3-T) & 4.62 & \textbf{63.01} & 13.12 \\
+R & + Rotation equiv.\ (StyleGAN3-R)& \textbf{4.50} & \textbf{66.65} & \textbf{40.48} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Translation equivariance rises from 16.2\,dB to 66.7\,dB --- roughly a
+$10^{5}$-fold reduction in equivariance error --- while FID ends slightly
+\emph{better} than the StyleGAN2 baseline (4.50 vs 5.14). Rotation equivariance
+is essentially untouched (${\sim}10.8$\,dB) until config R, which lifts it to
+40.5\,dB; this is informative, confirming that translation and rotation
+equivariance are separate properties requiring separate architectural treatment.
+
+Two rows deserve attention as evidence of honest reporting. Configs E and F
+\emph{degrade} FID (5.21 $\to$ 6.02 $\to$ 6.35) while improving EQ-T. The authors
+keep them because the theory demands them, and the loss is recovered at config G.
+A paper optimising for a headline number would have reordered or hidden this.
+
+\subsection{Generalisation across datasets}
+
+\begin{table}[htbp]
+\centering
+\caption{Results across six datasets (paper's Figure~5, left). ADA~\citep{karras2020ada}
+used for the smaller sets.}
+\label{tab:datasets}
+\small
+\begin{tabular}{llrrr}
+\toprule
+\textbf{Dataset} & \textbf{Model} & \textbf{FID} $\downarrow$ & \textbf{EQ-T} $\uparrow$ & \textbf{EQ-R} $\uparrow$ \\
+\midrule
+\multirow{1}{*}{FFHQ-U $1024^2$}
+ & StyleGAN2      & 3.79 & 15.89 & 10.79 \\
+ & StyleGAN3-T    & 3.67 & 61.69 & 13.95 \\
+ & StyleGAN3-R    & 3.66 & 64.78 & 47.64 \\
+\midrule
+FFHQ $1024^2$
+ & StyleGAN2      & \textbf{2.70} & 13.58 & 10.22 \\
+ & StyleGAN3-T    & 2.79 & 61.21 & 13.82 \\
+ & StyleGAN3-R    & 3.07 & 64.76 & 46.62 \\
+\midrule
+MetFaces $1024^2$
+ & StyleGAN2      & 15.22 & 16.39 & 12.89 \\
+ & StyleGAN3-T    & \textbf{15.11} & 65.23 & 16.82 \\
+ & StyleGAN3-R    & 15.33 & 64.86 & 46.81 \\
+\midrule
+AFHQv2 $512^2$
+ & StyleGAN2      & 4.62 & 13.83 & 11.50 \\
+ & StyleGAN3-T    & \textbf{4.04} & 60.15 & 13.51 \\
+ & StyleGAN3-R    & 4.40 & 64.89 & 40.34 \\
+\midrule
+Beaches $512^2$
+ & StyleGAN2      & 5.03 & 15.73 & 12.69 \\
+ & StyleGAN3-T    & \textbf{4.32} & 59.33 & 15.88 \\
+ & StyleGAN3-R    & 4.57 & 63.66 & 37.42 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The pattern is consistent: EQ-T lands in the 59--65\,dB range everywhere against
+13--19\,dB for StyleGAN2, while FID moves by small amounts in both directions.
+StyleGAN3 wins FID on three of the five sets shown and loses on aligned FFHQ
+(2.70 $\to$ 2.79/3.07) --- unsurprising, since aligned FFHQ is the dataset where
+a fixed coordinate frame is genuinely informative and coordinate dependence is
+therefore an advantage rather than a bug.
+
+\subsection{Cost}
+
+\begin{table}[htbp]
+\centering
+\caption{Training cost on FFHQ $1024^2$ (paper, §4).}
+\label{tab:cost}
+\small
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Model} & \textbf{Parameters} & \textbf{GPU-hours} & \textbf{Overhead} \\
+\midrule
+StyleGAN2    & 30.0M & 1106 & --- \\
+StyleGAN3-T  & 22.3M & 1576 & +42\,\% \\
+StyleGAN3-R  & 15.8M & 2248 & +103\,\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Equivariance is not free. StyleGAN3-R uses \emph{half} the parameters of
+StyleGAN2 yet takes twice as long to train, because the filtered nonlinearities
+and radially symmetric filters are computationally heavy. The whole project
+consumed 92 GPU-years and 225\,MWh.
+
+\subsection{Ablations that carry information}
+
+Several ablations are more informative than the headline numbers:
+\begin{itemize}[leftmargin=1.4em,itemsep=0.2em]
+  \item \textbf{Re-enabling noise inputs collapses equivariance}: EQ-T drops
+        63.01 $\to$ 24.46\,dB. Direct confirmation that per-pixel noise is a
+        coordinate channel, not innocuous stochasticity.
+  \item \textbf{Path-length regularisation harms FID} (4.62 $\to$ 5.00) while
+        \emph{improving} EQ-T. The authors reason that it penalises image change
+        under latent motion and so actively encourages sticking, and suspect the
+        equivariance gain comes from blurrier output --- a candid,
+        self-undermining observation.
+  \item \textbf{Lanczos filters damage rotation equivariance} (EQ-R 40.48 $\to$
+        25.25) because separable filters are not radially symmetric --- precisely
+        as the theory predicts.
+  \item \textbf{A $p4$ G-CNN alternative}~\citep{cohen2016gcnn} reaches only
+        17.07\,dB EQ-R at $2.48\times$ the training time, against 40.48\,dB for
+        config R. Steerable filters~\citep{weiler2019e2cnn} were found infeasible
+        at this network size.
+  \item \textbf{Internal representations change qualitatively}: some feature maps
+        switch from encoding magnitude to encoding \emph{phase}, which is what a
+        network must do to track sub-pixel position.
+\end{itemize}
+
+\subsection{Assessment of the evidence}
+
+Within its declared scope the evidence is thorough and honest. The scope,
+however, is narrower than the abstract's closing claim that the results ``pave
+the way for generative models better suited for video and animation''. No video
+model is trained; no temporal metric such as FVD~\citep{unterthiner2018fvd} is
+reported; the video evidence is a set of qualitative accompanying clips. The
+quantitative case rests entirely on two metrics the paper itself introduces.
+
+%========================================================= 4. LIMITATIONS =====
+\marksec{Limitations and Research Gaps}{2 marks}
+\label{sec:limits}
+
+\subsection{Limitations the authors acknowledge}
+
+\begin{enumerate}[leftmargin=1.5em,itemsep=0.3em]
+\item \textbf{The discriminator is untreated.} Conceded to cause visible failures
+      --- FFHQ teeth do not move correctly when the head turns.
+\item \textbf{Assumptions about the data can be violated.} If the training data is
+      itself aliased --- point-sampled cartoons, letterboxing, low-quality JPEG,
+      retro pixel art --- then jagged, grid-locked edges are a \emph{defining}
+      feature to be reproduced, and smooth sub-pixel translation directly
+      contradicts fidelity to the data.
+\item \textbf{Stochastic variation was removed, not replaced.} Noise inputs had to
+      go; nothing consistent with hierarchical synthesis was put in their place.
+\item \textbf{Only rigid motions are handled.} Scaling, anisotropic scaling and
+      general deformations are listed as future work.
+\item \textbf{Everything happens in sRGB.} Antialiasing should precede tone
+      mapping; all GANs including this one operate after it.
+\item \textbf{Attention- and token-based generators may be incompatible.} VQGAN-style
+      tokenisers~\citep{esser2021vqgan} are flagged as ``possibly at odds'' with
+      equivariance, and whether they can be made equivariant is left open.
+\item \textbf{Cost.} 92 GPU-years and 225\,MWh for the project; $+103\,\%$
+      training time for the rotation-equivariant configuration.
+\end{enumerate}
+
+\subsection{Gaps this review identifies}
+
+\paragraph{G1. The metrics are self-validating.} EQ-T and EQ-R are introduced by
+the same paper that optimises them, and no external task confirms that more
+decibels means a better generator. The paper's own guidance --- that EQ-T above
+${\sim}50$\,dB and EQ-R above ${\sim}40$\,dB ``look good'' --- is calibrated by
+watching videos. This is a closed loop: the architecture is designed to satisfy a
+property, the property is measured by a purpose-built metric, and the metric's
+threshold is set by inspecting outputs of that architecture. Nothing here is
+dishonest, but nothing independently anchors the scale either.
+
+\paragraph{G2. The headline result is a non-regression, not an improvement.}
+``Matches the FID of StyleGAN2'' means image quality did not get worse. The
+entire positive value proposition therefore lives in video and animation, which is
+exactly the setting that receives no quantitative evaluation. The paper's strongest
+claim and its weakest evidence coincide.
+
+\paragraph{G3. What was motivated is not what was delivered.} The opening example
+is \emph{hierarchical} and \emph{local}: moving a head moves the nose, which moves
+the pores. What the method achieves and measures is equivariance to \emph{global}
+rigid transformation of the entire image. A generator can be perfectly equivariant
+under global translation while still failing to move a nose correctly with a
+turning head, because that is a local, non-rigid deformation. The FFHQ teeth
+failure is precisely an instance of this, and attributing it solely to the
+discriminator may be too generous to the method.
+
+\paragraph{G4. Equivariance is assumed to be universally desirable.} The paper
+treats coordinate dependence as pathology. But its own aligned-FFHQ result shows
+StyleGAN2 winning on FID where the coordinate frame is meaningful, and its own
+cartoon example concedes that grid-locked structure is sometimes correct. There is
+no mechanism for a model to be equivariant \emph{where appropriate} and
+coordinate-dependent elsewhere; the choice is made globally, at architecture
+design time, by the practitioner.
+
+\paragraph{G5. Medical and scientific imaging is a blind spot.} This gap follows
+from G4 and is the one I find most consequential. In B-mode ultrasound --- the
+modality of my course project --- image texture is \emph{speckle}: a coherent
+interference pattern determined by the transducer geometry and the beam-forming
+grid, not by the surfaces of the tissue. Speckle genuinely is ``stuck'' to the
+imaging coordinate frame, and a physically faithful generator of ultrasound
+\emph{should} keep it there while allowing anatomy to move independently.
+StyleGAN3's architecture forbids exactly this. The same argument applies to CT
+streak artefacts, MRI coil-sensitivity shading, and the burnt-in depth rulers and
+on-screen chrome present in essentially every clinical ultrasound frame.
+
+\paragraph{G6. No generality evidence beyond faces, animals and beaches.} Five of
+the six datasets are natural images dominated by a single centred subject. Neither
+a texture-dominated domain nor a structured scientific domain is tested, so the
+claim of ``generally applicable, small architectural changes'' is broader than
+what was shown.
+
+%======================================================== 5. CONCLUDING  =====
+\marksec{Concluding Remarks --- Suggested Improvements}{3 marks}
+
+The reframing at this paper's heart --- treat feature maps as bandlimited
+continuous signals, and every layer as an operator on them --- is correct, useful
+and transferable, and I expect it to outlive the specific architecture. My
+suggestions below are aimed at the gaps of §\ref{sec:limits}, ordered from
+cheapest to most speculative.
+
+\subsection*{S1. Apply the same treatment to the discriminator, and test the
+prediction the paper already made}
+
+The authors attribute the FFHQ teeth failure to a coordinate-dependent
+discriminator but do not test it. The fix needs no new theory: the
+filtered-nonlinearity construction (upsample $\to$ LReLU $\to$ downsample) and
+the non-critical sampling schedule apply to $D$ unchanged. \textbf{Concretely},
+train three models on FFHQ --- equivariant $G$ only (the paper), equivariant $D$
+only, and both --- and report EQ-T alongside a targeted measurement of the teeth
+artefact (landmark displacement of the dental region across a head-turn
+interpolation). This is a falsifiable test of the paper's own hypothesis, costs
+one additional training run per arm, and would either close the most obvious gap
+or show that the explanation was wrong. Either outcome is publishable.
+
+\subsection*{S2. Replace self-validating metrics with a downstream measurement}
+
+To break the closed loop of G1, equivariance should be validated by a tool that
+knows nothing about it. \textbf{Concretely}, generate latent-interpolation
+sequences and measure temporal coherence with an \emph{independent} optical-flow
+estimator such as RAFT~\citep{teed2020raft}: for a genuinely equivariant
+generator, the flow field between consecutive frames should be smooth and should
+integrate consistently over the sequence, whereas texture sticking produces
+near-zero flow in textured regions while the underlying structure moves ---
+a signature that is easy to quantify as the divergence between flow measured on
+structure and on texture. Reporting FVD~\citep{unterthiner2018fvd} on generated
+sequences would similarly convert the abstract's video claim into evidence.
+
+I weight this suggestion heavily because of an experience in my own project: I
+validated a derived orientation target using a structure tensor, then found the
+number only trustworthy once I checked it against an entirely independent
+principal-axis estimator. Self-consistent measurements are comfortable and can be
+confidently wrong.
+
+\subsection*{S3. Make band-limiting adaptive rather than uniform}
+
+The paper applies the same expensive treatment at every layer, and its own
+parameter ablation shows a clear Pareto frontier that it does not exploit: filter
+size $n=4$ gives 57.5\,dB at $0.84\times$ time, $n=6$ gives 66.7\,dB at
+$1.00\times$, upsampling $m=4$ gives 74.2\,dB at $2.31\times$. Since aliasing is
+created only at nonlinearities and only where the signal actually contains
+near-Nyquist energy, the filtering effort should follow the spectrum.
+\textbf{Concretely}, measure per-layer spectral occupancy during training and set
+each layer's upsampling factor and filter support from it, spending $m=4$ only in
+the few layers that need it. Given StyleGAN3-R's $+103\,\%$ overhead, recovering
+even half of that at equal EQ-R would materially change the method's
+practicality.
+
+\subsection*{S4. Target local deformation equivariance, not only global rigid motion}
+
+This addresses G3, the gap between what the paper motivates and what it delivers.
+Global translation and rotation are the trivial members of the transformation
+family the introduction actually describes. \textbf{Concretely}, extend the input
+Fourier-feature grid to accept a smooth, low-frequency \emph{deformation field}
+rather than a rigid transform, and define EQ-D by analogy with EQ-T using
+small-amplitude random warps. The continuous-signal argument carries over
+directly, since a smooth warp of a bandlimited signal is still bandlimited for
+sufficiently small amplitude; the bandwidth budget simply has to account for the
+warp's Jacobian. This would let one state and test the paper's motivating claim
+--- that a nose moves with a head --- rather than a proxy for it. Spatial
+transformer machinery~\citep{jaderberg2015stn} offers a ready parameterisation.
+
+\subsection*{S5. Selective equivariance: let the model choose its own frame}
+
+Gaps G4 and G5 share a root cause --- equivariance is imposed globally when it is
+really a property of \emph{content}. Some image content belongs to object
+surfaces and should move with them; other content belongs to the imaging process
+and should not. \textbf{Concretely}, I propose a \emph{two-stream generator}: an
+equivariant structural stream built exactly as StyleGAN3 prescribes, and a
+deliberately coordinate-dependent stream that retains per-pixel noise and
+unfiltered positional encoding, with a learned spatial gate combining them. The
+gate is supervised by nothing --- it is free to discover which content is
+surface-bound.
+
+This also restores what config C threw away. StyleGAN3 removed noise inputs
+because they leak coordinates; the two-stream design keeps them where leaking
+coordinates is physically correct.
+
+The test case I would use is ultrasound synthesis. In B-mode imaging, anatomy
+(aponeuroses, fascicles, muscle boundaries) is surface-bound and should be
+equivariant, while speckle is beam-bound and should not be --- and the on-screen
+depth ruler and probe annotations are rigidly fixed to the display frame. A
+single generator currently cannot represent that split. A successful two-stream
+model would be checkable objectively rather than by eye: measure whether the
+synthesised speckle retains the correct first-order statistics (Rayleigh
+distributed under fully developed speckle) while anatomical structures translate
+correctly. Synthetic ultrasound with realistic speckle would be genuinely useful,
+since annotated medical data is scarce --- my own project had 1\,048 annotated
+aponeurosis frames in total~\citep{ritsche2024dltrack}.
+
+\subsection*{S6. Buy rotation equivariance only where it is needed}
+
+StyleGAN3-R doubles training time to make \emph{every} layer rotation-equivariant.
+But the paper's own analysis holds that coarse layers determine structure while
+fine layers add detail, and its config-T contribution made per-layer
+specifications a free parameter. \textbf{Concretely}, build a hybrid: radially
+symmetric $\mathrm{jinc}$ filters and $1{\times}1$ convolutions in the
+low-resolution layers where global pose is decided, and cheaper translation-only
+treatment at high resolution. If most of the 40.5\,dB EQ-R survives at closer to
+StyleGAN3-T's $+42\,\%$ overhead rather than $+103\,\%$, rotation equivariance
+becomes affordable by default instead of a deliberate trade.
+
+\subsection*{Closing assessment}
+
+This is a strong paper whose durable contribution is diagnostic rather than
+architectural: it shows that a defect invisible to the field's dominant metric
+had been present in every state-of-the-art generator, and it supplies the
+signal-processing vocabulary to reason about such defects. The architecture that
+follows is a competent, expensive, and somewhat rigid instantiation of that idea.
+Its principal unexamined assumption --- that dependence on image coordinates is
+always pathological --- happens to hold for photographs of faces and animals, and
+to fail for a large class of scientific and medical imagery where the coordinate
+frame is physically meaningful. The most valuable extension is therefore not more
+equivariance but \emph{selective} equivariance: a generator that learns which of
+its content belongs to the world and which belongs to the camera.
+
+%------------------------------------------------------------- REFERENCES ----
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
