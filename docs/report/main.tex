@@ -70,7 +70,7 @@
 {\color{Accent}\rule{0.55\textwidth}{1.2pt}}
 \vspace{1.2cm}
 
-{\large\bfseries CSE 754 --- Computer Vision\par}
+{\large\bfseries CSE 754: Computer Vision\par}
 {\large Course Project Report\par}
 
 \vspace{2cm}
@@ -82,7 +82,7 @@
 \toprule
 \textbf{Name} & Shamima Hossain \\
 \textbf{Student ID} & 21141119 \\
-\textbf{Course} & CSE 754 --- Computer Vision \\
+\textbf{Course} & CSE 754: Computer Vision \\
 \textbf{Submission} & Final Project Report \\
 \bottomrule
 \end{tabular}
@@ -101,8 +101,8 @@
 %--------------------------------------------------------------- ABSTRACT ----
 \begin{abstract}
 \noindent
-Three parameters describe skeletal-muscle architecture --- muscle thickness,
-pennation angle and fascicle length --- and all three are still measured by hand
+Three parameters describe skeletal-muscle architecture (muscle thickness,
+pennation angle and fascicle length), and all three are still measured by hand
 from B-mode ultrasound, slowly and with substantial operator dependence. We
 build a fully automatic pipeline for the UMUD challenge, which asks for these
 three measurements on 309 held-out ultrasound frames.
@@ -131,12 +131,12 @@ and aponeurosis segmentation reaches a Dice of \textbf{0.839}.
 We regard the negative results as the more valuable contribution. Of four
 mechanisms proposed at the outset, the orientation head does not beat the
 post-processing it was designed to replace, sequence smoothing is nearly inert,
-and the per-frame confidence does not predict error. The fourth ---
+and the per-frame confidence does not predict error. The fourth,
 reconstructing fascicle length by intersecting the fascicle with the fitted
-aponeuroses --- does help, but \emph{not for the reason proposed}: on a
+aponeuroses, does help, but \emph{not for the reason proposed}: on a
 controlled comparison it loses to the textbook $\MT/\sin(\PA)$
 ($p=0.0003$), and what it actually contributes is boundedness against
-$1/\sin$ ill-conditioning at shallow pennation angles --- a property the original
+$1/\sin$ ill-conditioning at shallow pennation angles, a property the original
 reasoning never identified.
 \end{abstract}
 
@@ -154,17 +154,17 @@ neuromuscular medicine. Three quantities summarise the internal architecture of
 a pennate muscle (Figure~\ref{fig:geometry}):
 
 \begin{itemize}
-  \item \textbf{muscle thickness} (\MT, \si{\milli\metre}) --- the separation of
+  \item \textbf{muscle thickness} (\MT, \si{\milli\metre}), the separation of
         the superficial and deep aponeuroses;
-  \item \textbf{pennation angle} (\PA, \degs) --- the angle between a muscle
+  \item \textbf{pennation angle} (\PA, \degs), the angle between a muscle
         fascicle and the deep aponeurosis;
-  \item \textbf{fascicle length} (\FL, \si{\milli\metre}) --- the length of a
+  \item \textbf{fascicle length} (\FL, \si{\milli\metre}), the length of a
         fascicle between the two aponeuroses.
 \end{itemize}
 
 These are still obtained by an operator drawing lines on a screen. The procedure
-is slow, subjective, and dependent on experience. Automated tools exist ---
-DL\_Track\_US~\citep{ritsche2024dltrack} is the most widely used --- but their
+is slow, subjective, and dependent on experience. Automated tools exist:
+DL\_Track\_US~\citep{ritsche2024dltrack} is the most widely used, but their
 own authors report that accuracy is not yet sufficient for out-of-the-box
 use~\citep{ritsche2026umud}.
 
@@ -182,7 +182,7 @@ Section~\ref{sec:data}.
 
 \begin{enumerate}
   \item \textbf{There are no measurement labels.} The training data provides
-        masks --- aponeurosis bands and fascicle segments --- and never a
+        masks (aponeurosis bands and fascicle segments), and never a
         thickness or an angle. The targets must be derived geometrically, and so
         must any offline validation signal.
   \item \textbf{There is no scale metadata.} Two targets are in millimetres; the
@@ -203,8 +203,8 @@ corrupt results in ways that resemble success.
 \subsection{Contributions}
 
 \begin{enumerate}
-  \item A complete, reproducible pipeline --- ruler calibration, segmentation
-        and geometric reconstruction --- that produces all three architecture
+  \item A complete, reproducible pipeline (ruler calibration, segmentation
+        and geometric reconstruction) that produces all three architecture
         parameters from a single ultrasound frame without any manual input.
   \item A \textbf{scale-recovery module} that reads the depth ruler of six
         scanner families and succeeds on 100\,\% of test frames, validated
@@ -214,7 +214,7 @@ corrupt results in ways that resemble success.
         of any kind.
   \item A set of \textbf{negative and corrective results} (Section~\ref{sec:disc})
         obtained by measuring each proposed mechanism against the thing it was
-        meant to replace --- including the finding that a more faithful geometric
+        meant to replace, including the finding that a more faithful geometric
         model can be a \emph{worse} estimator when it depends on noisier inputs.
 \end{enumerate}
 
@@ -231,7 +231,7 @@ this challenge. Its authors report a residual accuracy gap, particularly on vide
 sequences. \textbf{Marzola et al.}~\citep{marzola2021segmentation} segment
 transverse musculoskeletal ultrasound across 3\,917 images and three muscles,
 providing the main published evidence on cross-muscle and cross-device
-generalisation --- the question our Section~\ref{sec:generalisation} revisits.
+generalisation, the question our Section~\ref{sec:generalisation} revisits.
 \textbf{Leitner et al.}~\citep{leitner2022mtj} track the muscle--tendon junction
 across devices and subjects, and motivated the temporal component of our original
 proposal.
@@ -277,7 +277,7 @@ problems.
 \textbf{RAFT}~\citep{teed2020raft} provides dense optical flow by iterative
 refinement and was the intended basis for propagating fascicle geometry across
 video frames. The competition ships still images rather than video, so this was
-re-scoped --- see Section~\ref{sec:sequence}.
+re-scoped; see Section~\ref{sec:sequence}.
 
 %-------------------------------------------------------------- DATA -----
 \section{Data}
@@ -304,7 +304,7 @@ Test        & 309   & 309   & none \\
 \centering
 \includegraphics[width=\textwidth]{data_overview.png}
 \caption{Training annotations. Top: continuous aponeurosis bands. Bottom: short
-fascicle \emph{segments} --- annotators traced a representative sample, not every
+fascicle \emph{segments}: annotators traced a representative sample, not every
 fascicle, which is why Dice is a partly inappropriate metric for this task
 (Section~\ref{sec:res-seg}).}
 \label{fig:data}
@@ -313,8 +313,8 @@ fascicle, which is why Dice is a partly inappropriate metric for this task
 \subsection{Image and mask size mismatch}
 
 Whenever image and mask disagree in size, the image is $800\times1200$ and the
-mask is something else. Two readings are possible --- the mask is a \emph{crop}
-of the image, or the image is a \emph{resize} of the mask's frame --- and they
+mask is something else. Two readings are possible: the mask is a \emph{crop}
+of the image, or the image is a \emph{resize} of the mask's frame, and they
 imply opposite corrections. We tested it directly by resizing the mask onto the
 image canvas and measuring mean image intensity beneath it. Aponeuroses are
 bright, so a correctly aligned mask should sit on high intensity.
@@ -401,8 +401,8 @@ procedure was fitted to those numbers, so the agreement is evidence rather than
 circularity.
 
 \paragraph{Fallback behaviour.} An early version of the generic fallback
-invented a scale for images that have \emph{no} ruler --- the $512\times512$
-training crops --- by locking onto border speckle, returning
+invented a scale for images that have \emph{no} ruler (the $512\times512$
+training crops) by locking onto border speckle, returning
 49\,px/cm where the device table gives 77.8. That
 $1.6\times$ error inflated every millimetre downstream. The detector now requires
 the strip to look like scanner chrome (dark background, short bright runs) and
@@ -439,9 +439,9 @@ and a loss of $\tfrac12\,\text{BCE} + \tfrac12\,\text{Dice}$. Dice matters here
 because the positive class occupies 0.3--3\,\% of a frame, placing the pure-BCE
 optimum uncomfortably close to predicting background everywhere.
 
-\paragraph{Augmentation.} Deliberately minimal: horizontal flip --- a mirrored
+\paragraph{Augmentation.} Deliberately minimal: horizontal flip (a mirrored
 scan is a scan of the other leg, and its effect on the orientation field is
-exactly invertible --- plus gain and gamma jitter standing in for scanner preset
+exactly invertible), plus gain and gamma jitter standing in for scanner preset
 differences. \textbf{No vertical flip and no rotation}: a vertical flip would
 place the deep aponeurosis above the superficial one, inverting the anatomy the
 geometry module relies on, and pennation angle is defined relative to the probe
@@ -514,8 +514,8 @@ The proposal assumed video; the competition ships still frames. Rather than drop
 the component, we recovered the latent structure: grouping by ROI-cropped
 appearance, scanner family and depth setting reveals \textbf{27 runs of exactly
 five consecutive frames} (135 frames) interleaved with 174 singletons. The
-similarity distribution is sharply bimodal --- above 0.99 within runs, below 0.65
-everywhere else --- so the grouping threshold sits in an empty gap and is not a
+similarity distribution is sharply bimodal: above 0.99 within runs, below 0.65
+everywhere else, so the grouping threshold sits in an empty gap and is not a
 tuned parameter. Within a run, each parameter is replaced by a
 confidence-weighted \emph{median}, robust to a single collapsed segmentation.
 
@@ -538,7 +538,7 @@ annotator's masks and once on the network's, and compare.
 
 This measures the error the segmentation contributes, with the geometry module
 held fixed. It does \emph{not} measure the error of the geometry module against a
-human measurement --- that would require the expert-annotated UMUD subsets, which
+human measurement; that would require the expert-annotated UMUD subsets, which
 are outside this competition's data. \textbf{This report therefore makes no claim
 of agreement with expert measurement.}
 
@@ -578,19 +578,19 @@ Held-out frames        & 155   & 417 \\
 Best epoch / total     & 29/45 & 16/35 \\
 \textbf{Validation Dice} & \textbf{0.839} & \textbf{0.274} \\
 Validation IoU         & 0.731 & 0.161 \\
-Orientation-field error & ---   & \textbf{\ang{2.74}} \\
+Orientation-field error & n/a & \textbf{\ang{2.74}} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \paragraph{Interpretation of the fascicle Dice.} A Dice of 0.27 is low, and the
 metric is partly inappropriate rather than the model being poor. Annotators
-traced a \emph{representative sample} of fascicles --- roughly a dozen short
+traced a \emph{representative sample} of fascicles, roughly a dozen short
 segments in a field containing hundreds. A model that segments a different but
 equally valid set is penalised by Dice while being exactly right for the purpose
 the masks serve. The metric that reflects that purpose is the orientation error,
-which reaches \ang{2.74}. The aponeurosis task carries no such ambiguity ---
-there are exactly two bands and the annotator traced both --- and there Dice
+which reaches \ang{2.74}. The aponeurosis task carries no such ambiguity:
+there are exactly two bands and the annotator traced both, and there Dice
 reaches 0.839.
 
 The fascicle model overfits after epoch 16 (Figure~\ref{fig:curves}): training
@@ -627,14 +627,14 @@ Fascicle length (relative)  & \textbf{0.060} & 0.128 & 0.260 \\
 Thickness is the standout: the geometry recovers it from \emph{predicted} masks
 to within 0.3\,\% of what it recovers from the annotator's own masks. That single
 fact drives the most important design decision in the project
-(Section~\ref{sec:abl-fl}). Aponeurosis divergence --- the quantity the
-intersection construction rests on --- is also recovered well: \ang{1.68}
+(Section~\ref{sec:abl-fl}). Aponeurosis divergence (the quantity the
+intersection construction rests on) is also recovered well: \ang{1.68}
 predicted against \ang{1.72}, median error \ang{0.15}.
 
 \paragraph{Scope of the paired evaluation.} All 78 paired frames are $512\times512$ crops from a
 \emph{single} scanner family. They are the only frames carrying both
 annotations, so this is the only end-to-end evidence available, but it says
-nothing about how the two models behave together on the other five families ---
+nothing about how the two models behave together on the other five families,
 a limitation that Section~\ref{sec:abl-fl} shows to be consequential.
 
 \begin{figure}[htbp]
@@ -650,7 +650,7 @@ from predicted versus annotator masks on the 78 paired frames.}
 \label{sec:generalisation}
 
 Aponeurosis Dice ranges from 0.732 to 0.905 across acquisition shapes, and
-fascicle Dice from 0.218 to 0.408 --- close to a factor of two. The weakest
+fascicle Dice from 0.218 to 0.408, close to a factor of two. The weakest
 families are not the rarest, so this is not simply a data-quantity effect.
 Predicted thickness also differs substantially by family, spanning
 \SIrange{16.9}{29.1}{\milli\metre}. Some of that is genuine anatomy, since
@@ -698,7 +698,7 @@ Wilcoxon signed-rank $p=0.0003$. This contradicts the premise of the original
 proposal, which argued that the intersection should be preferred because the
 aponeuroses are not parallel.
 
-The intersection does not lose because the divergence is estimated badly --- it
+The intersection does not lose because the divergence is estimated badly; it
 is recovered to \ang{0.15}. It loses because of what each formula depends on. The
 textbook formula leans on muscle thickness, which the pipeline recovers to
 0.3\,\%; the intersection leans on the \emph{difference} of two fitted
@@ -726,7 +726,7 @@ Test set ($n=309$) & \textbf{15\,\%} & \textbf{\ang{3.0}} \\
 
 At \ang{8}, \eqref{eq:textbook} predicts a \SI{167}{\milli\metre} fascicle, which
 is outside any physiological range. The paired set contains almost none of that
-regime --- 3\,\% of frames below \ang{12}, against 15\,\% on the test frames ---
+regime (3\,\% of frames below \ang{12}, against 15\,\% on the test frames),
 so the divergence never bit there, and the textbook formula's better use of the
 well-recovered thickness won on the merits. The intersection cannot diverge,
 because the fascicle ray meets the superficial aponeurosis at a finite distance
@@ -735,8 +735,8 @@ however shallow the pennation angle.
 The two constructions therefore fail in different regimes, and the pipeline uses
 each where it is better conditioned: \texttt{fl\_method="auto"} takes the
 textbook value while it lands inside the physiological range and the intersection
-when it does not. This introduces no tuned parameter --- the bound it tests
-against is the clamp the estimate would have hit anyway --- and it is a no-op
+when it does not. This introduces no tuned parameter: the bound it tests
+against is the clamp the estimate would have hit anyway, and it is a no-op
 when the aponeuroses are parallel, because the two constructions then coincide
 exactly. On the test frames it engaged on 41 of 309.
 
@@ -749,7 +749,7 @@ the textbook formula is well conditioned.
 \paragraph{Relation to the original hypothesis.} The proposal argued for the
 intersection from aponeurosis non-parallelism, and on that account it loses
 outright. What it contributes instead is boundedness against $1/\sin$
-ill-conditioning --- a different property, which the original reasoning did not
+ill-conditioning, a different property, which the original reasoning did not
 identify.
 
 \subsubsection{Orientation head}
@@ -770,8 +770,8 @@ Structure tensor on the predicted mask (classical) & \textbf{\ang{0.72}} \\
 \end{table}
 
 The head does \emph{not} beat the post-processing it was designed to replace.
-Both are accurate in absolute terms --- under a degree, against a \ang{45} chance
-level --- but the proposal's argument was that predicting orientation
+Both are accurate in absolute terms (under a degree, against a \ang{45} chance
+level), but the proposal's argument was that predicting orientation
 \emph{directly} is better than recovering it afterwards, and on this evidence it
 is not. On this dataset the extra head is unjustified complexity.
 
@@ -792,7 +792,7 @@ $n=78$. \textbf{The confidence is not a usable uncertainty estimate.}
 This carried a methodological trap worth recording. An earlier version multiplied
 the confidence by 0.6 whenever an estimate hit a physiological clamp, which made
 it \emph{appear} to detect failures: clamped frames showed median confidence
-0.564 against $0.6\times0.934=0.560$ for the rest --- the entire gap was the
+0.564 against $0.6\times0.934=0.560$ for the rest; the entire gap was the
 penalty, and the independent components did not discriminate at all. The
 confidence was not predicting the failure; it was being told about it. The term
 was removed and a regression test now pins the invariant that confidence may use
@@ -838,7 +838,7 @@ thickness to 0.3\,\% and pennation angle to \ang{1.16} against annotator masks,
 with aponeurosis segmentation at a Dice of 0.839 and fascicle orientation to
 \ang{2.74}.
 The engineering that mattered most was not the deep learning but the recovery of
-physical scale from the scanner's own ruler --- a component the original proposal
+physical scale from the scanner's own ruler, a component the original proposal
 never contemplated, because it assumed the measurements were learnable targets.
 
 Of the four mechanisms actually proposed, one was refuted outright, one turned
